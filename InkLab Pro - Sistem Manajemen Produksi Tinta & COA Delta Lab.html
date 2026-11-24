@@ -1,0 +1,3007 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InkLab Pro — Sistem Manajemen Produksi Tinta & COA Delta Lab</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* Print Styles for COA Certificate */
+    @media print {
+      body * { visibility: hidden; }
+      #coa-print-area, #coa-print-area * { visibility: visible; }
+      #coa-print-area {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 16px;
+        background: white !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-blue-100 selection:text-blue-900">
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-30 hidden lg:hidden transition-opacity"></div>
+
+  <div class="flex min-h-screen">
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="fixed lg:sticky top-0 left-0 z-40 h-screen w-72 bg-slate-900 text-slate-200 flex flex-col transition-transform duration-300 -translate-x-full lg:translate-x-0 shadow-xl">
+      <!-- Brand Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-fuchsia-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/25">
+            <i data-lucide="droplets" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-lg text-white tracking-tight leading-none">InkLab <span class="text-cyan-400">Pro</span></h1>
+            <p class="text-[11px] text-slate-400 mt-1 font-medium">Ink Production & QC Lab</p>
+          </div>
+        </div>
+        <button onclick="toggleSidebar()" class="lg:hidden p-1.5 text-slate-400 hover:text-white rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
+        <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">Menu Utama</p>
+        
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-blue-600 text-white shadow-md shadow-blue-600/20">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i>
+          <span>Dashboard Ringkasan</span>
+        </button>
+
+        <button onclick="switchTab('stock')" id="nav-stock" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all">
+          <div class="flex items-center gap-3">
+            <i data-lucide="boxes" class="w-4 h-4 shrink-0 text-cyan-400"></i>
+            <span>Stock Base Tinta</span>
+          </div>
+          <span id="badge-low-stock" class="hidden px-2 py-0.5 text-[10px] font-bold bg-rose-500 text-white rounded-full">0</span>
+        </button>
+
+        <button onclick="switchTab('formula')" id="nav-formula" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all">
+          <i data-lucide="flask-conical" class="w-4 h-4 shrink-0 text-amber-400"></i>
+          <span>Formula Tinta</span>
+        </button>
+
+        <button onclick="switchTab('usage')" id="nav-usage" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all">
+          <i data-lucide="factory" class="w-4 h-4 shrink-0 text-emerald-400"></i>
+          <span>Pemakaian Tinta</span>
+        </button>
+
+        <button onclick="switchTab('coa')" id="nav-coa" class="nav-btn w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all">
+          <i data-lucide="file-badge" class="w-4 h-4 shrink-0 text-fuchsia-400"></i>
+          <span>COA Delta Lab (CIELAB)</span>
+        </button>
+      </nav>
+
+      <!-- Data Backup & Reset Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/40 space-y-2">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> LocalStorage Aktif</span>
+          <span id="storage-size" class="font-mono text-[11px]">OK</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="exportBackupJSON()" class="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors" title="Unduh Backup JSON">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Backup
+          </button>
+          <label class="flex items-center justify-center gap-1.5 px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition-colors cursor-pointer" title="Restore dari file JSON">
+            <i data-lucide="upload" class="w-3.5 h-3.5"></i> Restore
+            <input type="file" accept=".json" onchange="importBackupJSON(event)" class="hidden">
+          </label>
+        </div>
+        <button onclick="openResetConfirmModal()" class="w-full flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-rose-400 hover:bg-rose-950/50 rounded-lg text-xs font-medium transition-colors">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> Reset Data Contoh
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0">
+      <!-- Top Header Bar -->
+      <header class="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleSidebar()" class="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <div>
+            <h2 id="page-title" class="text-base sm:text-lg font-bold text-slate-900">Dashboard Ringkasan</h2>
+            <p id="page-subtitle" class="text-xs text-slate-500 hidden sm:block">Monitoring stok base tinta, produksi mixing, dan status kualitas warna laboratorium</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+          <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-xl text-xs font-medium text-slate-600">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-600"></i>
+            <span id="current-date-display"></span>
+          </div>
+          <button onclick="switchTab('usage'); openUsageModal()" class="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-all">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span class="hidden sm:inline">Catat Mixing</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Dynamic Views Container -->
+      <main class="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
+
+        <!-- ==================== 1. DASHBOARD VIEW ==================== -->
+        <section id="view-dashboard" class="space-y-6">
+          <!-- KPI Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Stok Base</span>
+                <div class="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                  <i data-lucide="layers" class="w-5 h-5"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <h3 id="kpi-total-stock" class="text-2xl font-extrabold text-slate-900 font-mono">0.0 kg</h3>
+              </div>
+              <p id="kpi-stock-items" class="text-xs text-slate-500 mt-1">0 item bahan baku aktif</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Formula Warna Aktif</span>
+                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <i data-lucide="palette" class="w-5 h-5"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <h3 id="kpi-total-formulas" class="text-2xl font-extrabold text-slate-900 font-mono">0</h3>
+                <span class="text-xs font-medium text-amber-600">Resep tervalidasi</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-1">Flexo, Gravure & Offset</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Pemakaian Bulan Ini</span>
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <i data-lucide="trending-up" class="w-5 h-5"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <h3 id="kpi-monthly-usage" class="text-2xl font-extrabold text-slate-900 font-mono">0.0 kg</h3>
+              </div>
+              <p id="kpi-monthly-jobs" class="text-xs text-slate-500 mt-1">0 Proses Order selesai</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Status QC / COA</span>
+                <div class="w-10 h-10 rounded-xl bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center">
+                  <i data-lucide="shield-check" class="w-5 h-5"></i>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center gap-3">
+                <span class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold font-mono" id="kpi-coa-pass">0 PASS</span>
+                <span class="px-2.5 py-1 rounded-lg bg-rose-100 text-rose-800 text-xs font-bold font-mono" id="kpi-coa-fail">0 FAIL</span>
+              </div>
+              <p id="kpi-coa-rate" class="text-xs text-slate-500 mt-1.5">Pass rate spektrofotometer: 100%</p>
+            </div>
+          </div>
+
+          <!-- Low Stock Alert Banner & Quick Actions -->
+          <div id="low-stock-alert-box" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 sm:p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+                  <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h4 class="font-bold text-rose-900 text-sm">Peringatan Stok Base Tinta Menipis (Low Stock Alert)</h4>
+                  <p class="text-xs text-rose-700">Segera lakukan pembelian / restock agar tidak menghambat jadwal produksi cetak.</p>
+                </div>
+              </div>
+              <button onclick="switchTab('stock')" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl transition-colors self-start sm:self-auto">
+                Kelola Stok Masuk
+              </button>
+            </div>
+            <div id="low-stock-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5"></div>
+          </div>
+
+          <!-- Charts Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-sm sm:text-base">Distribusi Pemakaian Base Tinta (kg)</h3>
+                  <p class="text-xs text-slate-500">Akumulasi konsumsi pigmen, extender & solvent dari mixing</p>
+                </div>
+              </div>
+              <div class="h-64 w-full">
+                <canvas id="chart-base-usage"></canvas>
+              </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+              <div class="mb-4">
+                <h3 class="font-bold text-slate-900 text-sm sm:text-base">Pemakaian per Mesin Cetak</h3>
+                <p class="text-xs text-slate-500">Proporsi berat tinta (kg) per line produksi</p>
+              </div>
+              <div class="h-64 w-full flex items-center justify-center">
+                <canvas id="chart-machine-usage"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Activities Table -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 text-sm">Mixing & Pemakaian Terakhir</h3>
+                <button onclick="switchTab('usage')" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Lihat Semua →</button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50 text-[11px] uppercase text-slate-500 border-b border-slate-100">
+                      <th class="py-2.5 px-4">Tanggal / PrO</th>
+                      <th class="py-2.5 px-4">Warna / Formula</th>
+                      <th class="py-2.5 px-4">Mesin</th>
+                      <th class="py-2.5 px-4 text-right">Netto (kg)</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dash-recent-usage" class="divide-y divide-slate-100 text-xs"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+              <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+                <h3 class="font-bold text-slate-900 text-sm">Hasil Uji COA Delta Lab Terbaru</h3>
+                <button onclick="switchTab('coa')" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Lihat Semua →</button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50 text-[11px] uppercase text-slate-500 border-b border-slate-100">
+                      <th class="py-2.5 px-4">No. COA / Batch</th>
+                      <th class="py-2.5 px-4">Warna</th>
+                      <th class="py-2.5 px-4 text-right">ΔE*ab</th>
+                      <th class="py-2.5 px-4 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dash-recent-coa" class="divide-y divide-slate-100 text-xs"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 2. STOCK BASE TINTA VIEW ==================== -->
+        <section id="view-stock" class="hidden space-y-6">
+          <!-- Action Header -->
+          <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex flex-col sm:flex-row flex-wrap gap-3 flex-1">
+              <div class="relative flex-1 min-w-[200px] max-w-md">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="stock-search" oninput="renderStockTable()" placeholder="Cari kode base, nama pigmen, batch, supplier..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+              <select id="stock-filter-category" onchange="renderStockTable()" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">Semua Kategori</option>
+                <option value="Univure Cozy">Univure Cozy</option>
+                <option value="Univ">Univ</option>
+              </select>
+              <select id="stock-filter-supplier" onchange="renderStockTable()" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">Semua Supplier</option>
+                <option value="PT DIC Graphics">PT DIC Graphics</option>
+              </select>
+              <select id="stock-filter-status" onchange="renderStockTable()" class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="ALL">Semua Status</option>
+                <option value="AMAN">Stok Aman</option>
+                <option value="MENIPIS">Stok Menipis / Habis</option>
+              </select>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="openStockMovementModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-colors">
+                <i data-lucide="history" class="w-4 h-4"></i> Kartu Stok
+              </button>
+              <button onclick="openDeleteBaseModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition-colors">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Hapus Stock
+              </button>
+              <button onclick="openInboundModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition-colors">
+                <i data-lucide="package-plus" class="w-4 h-4"></i> Stok Masuk
+              </button>
+              <button onclick="openBaseModal()" class="flex items-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition-colors">
+                <i data-lucide="plus" class="w-4 h-4"></i> Base Baru
+              </button>
+            </div>
+          </div>
+
+          <!-- Master Base Inventory Table -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <th class="py-3.5 px-4">Kode & Warna</th>
+                    <th class="py-3.5 px-4">Nama Base / Bahan</th>
+                    <th class="py-3.5 px-4">Kategori</th>
+                    <th class="py-3.5 px-4">No. Batch & Exp</th>
+                    <th class="py-3.5 px-4 text-right">Stok (kg)</th>
+                    <th class="py-3.5 px-4 text-right">Min. Stok</th>
+                    <th class="py-3.5 px-4 text-center">Status</th>
+                    <th class="py-3.5 px-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody id="stock-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 3. FORMULA TINTA VIEW ==================== -->
+        <section id="view-formula" class="hidden space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Left: Formula List -->
+            <div class="lg:col-span-5 space-y-4">
+              <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="font-bold text-slate-900">Daftar Formula Warna</h3>
+                  <div class="flex items-center gap-1.5">
+                    <button onclick="openDeleteFormulaModal()" class="flex items-center gap-1 px-2.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors" title="Hapus Formula">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus Formula
+                    </button>
+                    <button onclick="openFormulaEditor()" class="flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors">
+                      <i data-lucide="plus" class="w-3.5 h-3.5"></i> Buat Formula
+                    </button>
+                  </div>
+                </div>
+                <div class="relative">
+                  <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                  <input type="text" id="formula-search" oninput="renderFormulaList()" placeholder="Cari Pantone, kode warna, customer..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              <div id="formula-cards-list" class="space-y-3 max-h-[680px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Right: Formula Detail & Batch Calculator -->
+            <div class="lg:col-span-7">
+              <div id="formula-detail-panel" class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 sm:p-6">
+                <!-- Filled dynamically -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 4. PEMAKAIAN TINTA VIEW ==================== -->
+        <section id="view-usage" class="hidden space-y-6">
+          <!-- Filter & Actions -->
+          <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-1">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter Mesin Cetak</label>
+                <select id="usage-filter-machine" onchange="renderUsageTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                  <option value="ALL">Semua Mesin</option>
+                  <option value="WH 07">WH 07</option>
+                  <option value="WH 06">WH 06</option>
+                  <option value="FJ1">FJ1</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Filter Operator Mixing</label>
+                <select id="usage-filter-operator" onchange="renderUsageTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+                  <option value="ALL">Semua Operator</option>
+                  <option value="Bejo P">Bejo P</option>
+                  <option value="Asmin">Asmin</option>
+                  <option value="Ismail">Ismail</option>
+                  <option value="Candra PL">Candra PL</option>
+                  <option value="Wahyu">Wahyu</option>
+                  <option value="Juarn">Juarn</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Dari Tanggal</label>
+                <input type="date" id="usage-filter-start" onchange="renderUsageTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-500 mb-1">Sampai Tanggal</label>
+                <input type="date" id="usage-filter-end" onchange="renderUsageTable()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 self-end">
+              <button onclick="exportUsageCSV()" class="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs sm:text-sm font-semibold transition-colors">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-600"></i> Ekspor CSV
+              </button>
+              <button onclick="openUsageModal()" class="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition-colors">
+                <i data-lucide="plus-circle" class="w-4 h-4"></i> Input Pemakaian / Mixing
+              </button>
+            </div>
+          </div>
+
+          <!-- Usage Log Table -->
+          <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    <th class="py-3.5 px-4">Tanggal & No. PrO</th>
+                    <th class="py-3.5 px-4">Mesin & Operator</th>
+                    <th class="py-3.5 px-4">Formula / Tinta</th>
+                    <th class="py-3.5 px-4 text-right">Mixing (kg)</th>
+                    <th class="py-3.5 px-4 text-right">Return (kg)</th>
+                    <th class="py-3.5 px-4 text-right">Netto Terpakai</th>
+                    <th class="py-3.5 px-4 text-right">Detail</th>
+                  </tr>
+                </thead>
+                <tbody id="usage-table-body" class="divide-y divide-slate-100 text-sm"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== 5. COA DELTA LAB VIEW ==================== -->
+        <section id="view-coa" class="hidden space-y-6">
+          <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <!-- Left: Interactive Spektrofotometer & QC Input Form -->
+            <div class="xl:col-span-5 bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 space-y-5">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 class="font-bold text-slate-900 text-base">Input Uji Spektrofotometer CIELAB</h3>
+                  <p class="text-xs text-slate-500">Kalkulasi otomatis ΔL*, Δa*, Δb*, ΔE*ab & ΔE2000</p>
+                </div>
+                <span id="coa-form-badge" class="px-2.5 py-1 bg-blue-50 text-blue-700 font-mono text-xs font-bold rounded-lg">NEW COA</span>
+              </div>
+
+              <form id="coa-form" onsubmit="saveCOA(event)" class="space-y-4">
+                <input type="hidden" id="coa-edit-id">
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor COA</label>
+                    <input type="text" id="coa-number" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Uji</label>
+                    <input type="date" id="coa-date" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Formula (Opsional)</label>
+                    <select id="coa-formula-select" onchange="prefillCOAFromFormula()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                      <option value="">-- Manual / Custom --</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">No. Batch Produksi</label>
+                    <input type="text" id="coa-batch" required placeholder="BTH-2026-089" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Kode & Nama Warna</label>
+                    <input type="text" id="coa-color-name" required placeholder="PMS 485 C - Brand Red" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Customer</label>
+                    <input type="text" id="coa-customer" required placeholder="PT Indofood Packaging" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Proses Order (PrO)</label>
+                    <input type="text" id="coa-jo" required placeholder="110000000123" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Substrat / Film Uji</label>
+                    <input type="text" id="coa-substrate" required placeholder="OPP Matte 20µm / PET 12µm" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                </div>
+
+                <!-- CIELAB Spectrophotometer Box -->
+                <div class="p-3.5 bg-slate-900 text-white rounded-2xl space-y-3">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                      <i data-lucide="scan-line" class="w-4 h-4"></i> Data Spektrofotometer (D65/10°)
+                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[11px] text-slate-400">Max ΔE:</span>
+                      <input type="number" step="0.1" id="coa-tol-de" value="2.0" oninput="recalcLabPreview()" class="w-14 px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-xs font-mono text-center text-amber-300">
+                    </div>
+                  </div>
+
+                  <!-- Standard Lab -->
+                  <div class="grid grid-cols-4 gap-2 items-center">
+                    <span class="text-xs font-semibold text-slate-300">Standard</span>
+                    <div>
+                      <label class="block text-[10px] text-slate-400">L* (0..100)</label>
+                      <input type="number" step="0.01" id="lab-std-l" value="48.50" oninput="recalcLabPreview()" required class="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-mono text-white">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400">a* (-/+)</label>
+                      <input type="number" step="0.01" id="lab-std-a" value="62.40" oninput="recalcLabPreview()" required class="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-mono text-white">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400">b* (-/+)</label>
+                      <input type="number" step="0.01" id="lab-std-b" value="46.80" oninput="recalcLabPreview()" required class="w-full px-2 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs font-mono text-white">
+                    </div>
+                  </div>
+
+                  <!-- Sample Lab -->
+                  <div class="grid grid-cols-4 gap-2 items-center">
+                    <span class="text-xs font-semibold text-cyan-300">Sample</span>
+                    <div>
+                      <label class="block text-[10px] text-slate-400">L* Sample</label>
+                      <input type="number" step="0.01" id="lab-smp-l" value="48.95" oninput="recalcLabPreview()" required class="w-full px-2 py-1.5 bg-slate-800 border border-cyan-700/70 rounded-lg text-xs font-mono text-white">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400">a* Sample</label>
+                      <input type="number" step="0.01" id="lab-smp-a" value="61.85" oninput="recalcLabPreview()" required class="w-full px-2 py-1.5 bg-slate-800 border border-cyan-700/70 rounded-lg text-xs font-mono text-white">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400">b* Sample</label>
+                      <input type="number" step="0.01" id="lab-smp-b" value="47.50" oninput="recalcLabPreview()" required class="w-full px-2 py-1.5 bg-slate-800 border border-cyan-700/70 rounded-lg text-xs font-mono text-white">
+                    </div>
+                  </div>
+
+                  <!-- Live Visual Swatch & Delta Calculation -->
+                  <div class="pt-2 border-t border-slate-800 grid grid-cols-12 gap-3 items-center">
+                    <div class="col-span-5 flex rounded-xl overflow-hidden border border-slate-700 h-16 shadow-inner">
+                      <div id="swatch-std" class="w-1/2 h-full flex flex-col justify-end p-1.5 text-[9px] font-bold" style="background:#c82828;">
+                        <span class="bg-black/40 text-white px-1 rounded w-fit">STD</span>
+                      </div>
+                      <div id="swatch-smp" class="w-1/2 h-full flex flex-col justify-end items-end p-1.5 text-[9px] font-bold" style="background:#cc2c2c;">
+                        <span class="bg-black/40 text-white px-1 rounded w-fit">SMP</span>
+                      </div>
+                    </div>
+                    <div class="col-span-7 space-y-1 text-xs font-mono">
+                      <div class="flex justify-between">
+                        <span class="text-slate-400">ΔL*:</span>
+                        <span id="live-dl" class="font-semibold">+0.45 (Lighter)</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-slate-400">Δa*:</span>
+                        <span id="live-da" class="font-semibold">-0.55 (Greener)</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span class="text-slate-400">Δb*:</span>
+                        <span id="live-db" class="font-semibold">+0.70 (Yellower)</span>
+                      </div>
+                      <div class="flex justify-between items-center pt-1 border-t border-slate-800">
+                        <span class="text-cyan-400 font-bold">ΔE*ab / ΔE00:</span>
+                        <span id="live-de" class="text-sm font-extrabold text-emerald-400">1.00 / 0.82</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Physical QC Parameters -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Viskositas (detik - Zahn #2)</label>
+                    <input type="text" id="coa-viscosity" required value="18.5 sec (Zahn #2 @25°C)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Fineness / Grindometer (µm)</label>
+                    <input type="text" id="coa-fineness" required value="< 5 µm (Pass)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Adhesion / Tape Test</label>
+                    <select id="coa-adhesion" onchange="recalcLabPreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+                      <option value="PASS">PASS (100% No Peel)</option>
+                      <option value="FAIL">FAIL (Peeling Detected)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Rub Resistance (50x)</label>
+                    <select id="coa-rub" onchange="recalcLabPreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold">
+                      <option value="PASS">PASS (Good Resistance)</option>
+                      <option value="FAIL">FAIL (Smudging)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Lab Analyst</label>
+                    <input type="text" id="coa-analyst" required value="Rina Marlina, S.Si" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">QC Manager</label>
+                    <input type="text" id="coa-manager" required value="Ir. Hendra Wijaya" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-2">
+                  <div id="coa-live-verdict" class="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-extrabold">
+                    KEPUTUSAN: PASSED
+                  </div>
+                  <div class="flex gap-2">
+                    <button type="button" onclick="resetCOAForm()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Reset</button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5">
+                      <i data-lucide="save" class="w-4 h-4"></i> Simpan COA
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <!-- Right: COA Archive List -->
+            <div class="xl:col-span-7 space-y-4">
+              <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 class="font-bold text-slate-900">Arsip Certificate of Analysis (COA)</h3>
+                  <p class="text-xs text-slate-500">Klik dokumen untuk melihat sertifikat resmi & cetak PDF</p>
+                </div>
+                <input type="text" id="coa-search" oninput="renderCOATable()" placeholder="Cari No. COA, batch, warna, customer..." class="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+
+              <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left border-collapse">
+                    <thead>
+                      <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        <th class="py-3 px-4">No. COA & Tgl</th>
+                        <th class="py-3 px-4">Warna & Customer</th>
+                        <th class="py-3 px-4 text-center">Swatch</th>
+                        <th class="py-3 px-4 text-right">ΔE*ab</th>
+                        <th class="py-3 px-4 text-center">QC Status</th>
+                        <th class="py-3 px-4 text-right">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody id="coa-table-body" class="divide-y divide-slate-100 text-xs"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Modal 1: Add/Edit Base Tinta -->
+  <div id="modal-base" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="modal-base-title" class="font-bold text-slate-900 text-base">Tambah Master Base Tinta</h3>
+        <button onclick="closeModal('modal-base')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="form-base" onsubmit="saveBaseItem(event)" class="p-5 space-y-4">
+        <input type="hidden" id="base-id">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Kode Base *</label>
+            <input type="text" id="base-code" required placeholder="BSE-C01" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono uppercase">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Warna Visual (Hex)</label>
+            <div class="flex items-center gap-2">
+              <input type="color" id="base-hex" value="#009ee3" class="h-9 w-12 rounded-lg border border-slate-200 cursor-pointer">
+              <span class="text-xs text-slate-500">Pilih warna base</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Base / Bahan Baku *</label>
+          <input type="text" id="base-name" required placeholder="Process Cyan Pigment Base 15:3" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Kategori *</label>
+            <select id="base-category" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              <option value="Univure Cozy">Univure Cozy</option>
+              <option value="Univ">Univ</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nomor Batch</label>
+            <input type="text" id="base-batch" placeholder="LOT-2609A" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Stok Awal (kg) *</label>
+            <input type="number" step="0.01" min="0" id="base-stock" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Min. Stok (kg) *</label>
+            <input type="number" step="0.1" min="0" id="base-min-stock" required value="20" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Supplier</label>
+            <input type="text" id="base-supplier" placeholder="PT DIC Graphics" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Kedaluwarsa</label>
+            <input type="date" id="base-expiry" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+        </div>
+        <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-base')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Simpan Base</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Inbound / Restock Base -->
+  <div id="modal-inbound" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="package-plus" class="w-5 h-5 text-emerald-600"></i> Transaksi Stok Masuk (Inbound)
+        </h3>
+        <button onclick="closeModal('modal-inbound')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="submitInboundStock(event)" class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Base Tinta *</label>
+          <select id="inbound-base-id" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Jumlah Masuk (kg) *</label>
+            <input type="number" step="0.01" min="0.01" id="inbound-qty" required placeholder="50.00" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">No. Batch Baru</label>
+            <input type="text" id="inbound-batch" placeholder="LOT-2611-NEW" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">No. Surat Jalan / PO / Keterangan</label>
+          <input type="text" id="inbound-note" required placeholder="PO-2026-114 / Kedatangan Drum 200kg" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+        </div>
+        <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-inbound')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold">Tambah Stok</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Kartu Stok / Stock Movement Log -->
+  <div id="modal-movements" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Riwayat Mutasi Stok (Kartu Stok)</h3>
+          <p class="text-xs text-slate-500">Log keluar-masuk bahan baku base tinta secara real-time</p>
+        </div>
+        <button onclick="closeModal('modal-movements')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <div class="overflow-y-auto flex-1">
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+            <tr>
+              <th class="py-3 px-4">Waktu</th>
+              <th class="py-3 px-4">Base Tinta</th>
+              <th class="py-3 px-4 text-center">Tipe</th>
+              <th class="py-3 px-4 text-right">Perubahan (kg)</th>
+              <th class="py-3 px-4 text-right">Saldo Akhir</th>
+              <th class="py-3 px-4">Referensi / Ket.</th>
+            </tr>
+          </thead>
+          <tbody id="movement-table-body" class="divide-y divide-slate-100 text-xs"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Formula Builder / Editor -->
+  <div id="modal-formula-editor" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <h3 id="formula-editor-title" class="font-bold text-slate-900 text-base">Builder Formula Tinta Baru</h3>
+        <button onclick="closeModal('modal-formula-editor')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="saveFormula(event)" class="p-5 space-y-4 overflow-y-auto flex-1">
+        <input type="hidden" id="edit-formula-id">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Kode Warna / Pantone *</label>
+            <input type="text" id="fml-code" required placeholder="PMS 286 C" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Warna Formula *</label>
+            <input type="text" id="fml-name" required placeholder="Corporate Royal Blue" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Tipe Tinta *</label>
+            <select id="fml-type" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              <option value="Flexo Solvent">Flexo Solvent</option>
+              <option value="Rotogravure">Rotogravure</option>
+              <option value="Offset Sheetfed">Offset Sheetfed</option>
+              <option value="Water-Based Flexo">Water-Based Flexo</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Customer *</label>
+            <input type="text" id="fml-customer" required placeholder="PT Mayora Indah" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Target Viskositas</label>
+            <input type="text" id="fml-viscosity" value="18 - 20 sec (Zahn #2)" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Target Max ΔE</label>
+            <input type="number" step="0.1" id="fml-target-de" value="1.5" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+        </div>
+
+        <!-- Standard CIELAB Target for Formula -->
+        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 grid grid-cols-4 gap-2 items-center">
+          <div class="flex items-center gap-2">
+            <input type="color" id="fml-hex" value="#0033a0" class="w-8 h-8 rounded cursor-pointer border-0">
+            <span class="text-xs font-semibold text-slate-700">Target Lab:</span>
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500">L* Std</label>
+            <input type="number" step="0.01" id="fml-lab-l" value="28.50" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500">a* Std</label>
+            <input type="number" step="0.01" id="fml-lab-a" value="14.20" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </div>
+          <div>
+            <label class="block text-[10px] text-slate-500">b* Std</label>
+            <input type="number" step="0.01" id="fml-lab-b" value="-54.80" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono">
+          </div>
+        </div>
+
+        <!-- Dynamic Composition Rows -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold uppercase tracking-wider text-slate-700">Komposisi Base Tinta (Wajib Total = 100%)</label>
+            <button type="button" onclick="addFormulaRow()" class="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah Komponen
+            </button>
+          </div>
+          <div id="formula-rows-container" class="space-y-2"></div>
+          <div class="flex items-center justify-between p-3 rounded-xl bg-slate-100 text-xs font-bold">
+            <span>Total Komposisi:</span>
+            <span id="formula-total-pct" class="font-mono text-sm text-rose-600">0.00%</span>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-formula-editor')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Simpan Formula</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 5: Input Pemakaian / Mixing Tinta -->
+  <div id="modal-usage" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-slate-900 text-base">Catat Pemakaian & Mixing Tinta Produksi</h3>
+          <p class="text-xs text-slate-500">Stok base tinta akan otomatis terpotong sesuai berat mixing</p>
+        </div>
+        <button onclick="closeModal('modal-usage')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form onsubmit="submitInkUsage(event)" class="p-5 space-y-4 overflow-y-auto flex-1">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Produksi *</label>
+            <input type="date" id="usg-date" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Proses Order (PrO) *</label>
+            <input type="text" id="usg-jo" required placeholder="110000000123" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono uppercase">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Mesin Cetak *</label>
+            <select id="usg-machine" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              <option value="WH 07">WH 07</option>
+              <option value="WH 06">WH 06</option>
+              <option value="FJ1">FJ1</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Operator Mixing *</label>
+            <select id="usg-operator" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
+              <option value="Bejo P">Bejo P</option>
+              <option value="Asmin">Asmin</option>
+              <option value="Ismail">Ismail</option>
+              <option value="Candra PL">Candra PL</option>
+              <option value="Wahyu">Wahyu</option>
+              <option value="Juarn">Juarn</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Mode Pemakaian *</label>
+          <select id="usg-mode" onchange="toggleUsageMode()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium">
+            <option value="FORMULA">Berdasarkan Formula Warna (Otomatis hitung proporsi)</option>
+            <option value="DIRECT">Pemakaian Base Tunggal / Toning / Solvent</option>
+          </select>
+        </div>
+
+        <!-- Mode Formula -->
+        <div id="usg-formula-box" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Formula Warna *</label>
+            <select id="usg-formula-id" onchange="previewUsageBreakdown()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+          </div>
+        </div>
+
+        <!-- Mode Direct Base -->
+        <div id="usg-direct-box" class="hidden space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Base Tinta / Solvent *</label>
+            <select id="usg-direct-base-id" onchange="previewUsageBreakdown()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Berat Mixing / Keluar (kg) *</label>
+            <input type="number" step="0.01" min="0.05" id="usg-weight" value="10" oninput="previewUsageBreakdown()" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Tinta Return / Sisa Press (kg)</label>
+            <input type="number" step="0.01" min="0" id="usg-return" value="0" oninput="previewUsageBreakdown()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono">
+          </div>
+        </div>
+
+        <!-- Breakdown Preview -->
+        <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+          <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+            <span>Rincian Pengurangan Stok Base:</span>
+            <span id="usg-netto-badge" class="text-blue-700 font-mono">Netto: 10.00 kg</span>
+          </div>
+          <div id="usg-breakdown-list" class="space-y-1.5 text-xs"></div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-usage')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold">Batal</button>
+          <button type="submit" id="btn-submit-usage" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold">Simpan & Potong Stok</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 6: Official COA Certificate Print Preview -->
+  <div id="modal-coa-preview" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/75 backdrop-blur-xs p-2 sm:p-4">
+    <div class="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
+      <div class="p-4 bg-slate-900 text-white flex items-center justify-between no-print">
+        <div class="flex items-center gap-2">
+          <i data-lucide="award" class="w-5 h-5 text-cyan-400"></i>
+          <span class="font-bold text-sm">Pratinjau Dokumen Resmi Certificate of Analysis (COA)</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="window.print()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold rounded-xl text-xs transition-colors">
+            <i data-lucide="printer" class="w-4 h-4"></i> Cetak / Simpan PDF
+          </button>
+          <button onclick="closeModal('modal-coa-preview')" class="p-1.5 text-slate-400 hover:text-white rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable COA Document -->
+      <div class="overflow-y-auto p-4 sm:p-8 bg-slate-100 flex-1">
+        <div id="coa-print-area" class="bg-white max-w-3xl mx-auto p-6 sm:p-10 rounded-xl shadow-sm border border-slate-300 text-slate-900">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 7: Confirm Reset Data -->
+  <div id="modal-reset" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">
+        <i data-lucide="alert-circle" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h3 class="font-bold text-slate-900 text-base">Reset ke Data Contoh Awal?</h3>
+        <p class="text-xs text-slate-500 mt-1">Semua perubahan stok, formula, pemakaian, dan COA yang tersimpan di browser ini akan dikembalikan ke data simulasi awal.</p>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('modal-reset')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+        <button onclick="confirmResetData()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold">Ya, Reset Data</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 8: Confirm Delete Base Stock -->
+  <div id="modal-delete-base" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Hapus Stock Base Tinta</h3>
+            <p class="text-xs text-slate-500">Pilih item stok base yang akan dihapus permanen</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-delete-base')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Item Stock Base *</label>
+          <select id="delete-base-select" onchange="updateDeleteBaseInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+        </div>
+        <p id="delete-base-desc" class="text-xs text-slate-600"></p>
+        <div id="delete-base-warning" class="hidden p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium"></div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button onclick="closeModal('modal-delete-base')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+        <button onclick="confirmDeleteBase()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Ya, Hapus Stock
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 9: Confirm Delete Formula -->
+  <div id="modal-delete-formula" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Hapus Formula Warna</h3>
+            <p class="text-xs text-slate-500">Pilih resep formula tinta yang akan dihapus permanen</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-delete-formula')" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Pilih Formula Warna *</label>
+          <select id="delete-formula-select" onchange="updateDeleteFormulaInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"></select>
+        </div>
+        <p id="delete-formula-desc" class="text-xs text-slate-600"></p>
+        <div id="delete-formula-warning" class="hidden p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800 font-medium"></div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+        <button onclick="closeModal('modal-delete-formula')" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+        <button onclick="confirmDeleteFormula()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Ya, Hapus Formula
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. STATE MANAGEMENT & REALISTIC SAMPLE DATA
+    // =========================================================================
+    const STORAGE_KEY = 'inklab_pro_data_v1';
+
+    const DEFAULT_DATA = {
+      bases: [
+        { id: 'b1', code: 'BSE-C01', name: 'Process Cyan Pigment Base 15:3', category: 'Univure Cozy', batch: 'LOT-2608C', stock: 145.50, minStock: 40, supplier: 'PT DIC Graphics', expiry: '2027-08-15', hex: '#009ee3' },
+        { id: 'b2', code: 'BSE-M01', name: 'Process Magenta Rubine Base 57:1', category: 'Univure Cozy', batch: 'LOT-2609M', stock: 112.00, minStock: 40, supplier: 'PT DIC Graphics', expiry: '2027-09-10', hex: '#e6007e' },
+        { id: 'b3', code: 'BSE-Y01', name: 'Process Yellow Diarylide Base 12', category: 'Univure Cozy', batch: 'LOT-2609Y', stock: 18.50, minStock: 35, supplier: 'PT DIC Graphics', expiry: '2027-07-22', hex: '#ffed00' },
+        { id: 'b4', code: 'BSE-K01', name: 'Dense Carbon Black Base PB7', category: 'Univure Cozy', batch: 'LOT-2610K', stock: 168.00, minStock: 50, supplier: 'PT DIC Graphics', expiry: '2027-10-30', hex: '#1e293b' },
+        { id: 'b5', code: 'BSE-W01', name: 'High Opacity Titanium White PW6', category: 'Univure Cozy', batch: 'LOT-2610W', stock: 310.00, minStock: 80, supplier: 'PT DIC Graphics', expiry: '2027-11-12', hex: '#f8fafc' },
+        { id: 'b6', code: 'BSE-R02', name: 'Warm Red Naphthol Base PR170', category: 'Univ', batch: 'LOT-2607R', stock: 64.20, minStock: 25, supplier: 'PT DIC Graphics', expiry: '2027-06-18', hex: '#dc2626' },
+        { id: 'b7', code: 'EXT-NC01', name: 'Nitrocellulose Extender Varnish', category: 'Univ', batch: 'LOT-2610V', stock: 240.00, minStock: 60, supplier: 'PT DIC Graphics', expiry: '2027-12-01', hex: '#e2e8f0' },
+        { id: 'b8', code: 'SLV-EA01', name: 'Ethyl Acetate (EA) Fast Solvent', category: 'Univ', batch: 'LOT-2611S', stock: 22.00, minStock: 50, supplier: 'PT DIC Graphics', expiry: '2028-02-20', hex: '#bae6fd' },
+        { id: 'b9', code: 'ADD-WX01', name: 'PE Wax Slip & Rub Additive', category: 'Univ', batch: 'LOT-2608A', stock: 38.00, minStock: 15, supplier: 'PT DIC Graphics', expiry: '2027-09-25', hex: '#cbd5e1' }
+      ],
+      formulas: [
+        {
+          id: 'f1',
+          code: 'PMS 485 C',
+          name: 'Corporate Crimson Red (Snack Pack)',
+          type: 'Flexo Solvent',
+          customer: 'PT Indofood Fritolay',
+          targetViscosity: '18 - 20 sec (Zahn #2)',
+          targetDE: 1.5,
+          hex: '#da291c',
+          stdLab: { L: 48.50, a: 62.40, b: 46.80 },
+          items: [
+            { baseId: 'b6', pct: 48.0 },
+            { baseId: 'b3', pct: 16.0 },
+            { baseId: 'b7', pct: 26.0 },
+            { baseId: 'b8', pct: 7.0 },
+            { baseId: 'b9', pct: 3.0 }
+          ]
+        },
+        {
+          id: 'f2',
+          code: 'PMS 286 C',
+          name: 'Royal Sapphire Blue (Beverage Label)',
+          type: 'Rotogravure',
+          customer: 'PT Tirta Investama',
+          targetViscosity: '16 - 18 sec (Zahn #2)',
+          targetDE: 1.8,
+          hex: '#0032a0',
+          stdLab: { L: 28.40, a: 14.10, b: -54.60 },
+          items: [
+            { baseId: 'b1', pct: 52.0 },
+            { baseId: 'b2', pct: 12.0 },
+            { baseId: 'b7', pct: 24.0 },
+            { baseId: 'b8', pct: 9.0 },
+            { baseId: 'b9', pct: 3.0 }
+          ]
+        },
+        {
+          id: 'f3',
+          code: 'WHT-OP90',
+          name: 'Super High Opacity Backing White',
+          type: 'Flexo Solvent',
+          customer: 'PT Mayora Indah Tbk',
+          targetViscosity: '20 - 22 sec (Zahn #2)',
+          targetDE: 1.2,
+          hex: '#f1f5f9',
+          stdLab: { L: 94.20, a: -0.65, b: 1.40 },
+          items: [
+            { baseId: 'b5', pct: 68.0 },
+            { baseId: 'b7', pct: 20.0 },
+            { baseId: 'b8', pct: 9.0 },
+            { baseId: 'b9', pct: 3.0 }
+          ]
+        },
+        {
+          id: 'f4',
+          code: 'PMS 355 C',
+          name: 'Emerald Herbal Green',
+          type: 'Flexo Solvent',
+          customer: 'PT Kalbe Farma',
+          targetViscosity: '18 - 20 sec (Zahn #2)',
+          targetDE: 1.5,
+          hex: '#009639',
+          stdLab: { L: 49.80, a: -52.40, b: 28.10 },
+          items: [
+            { baseId: 'b1', pct: 36.0 },
+            { baseId: 'b3', pct: 34.0 },
+            { baseId: 'b7', pct: 21.0 },
+            { baseId: 'b8', pct: 6.0 },
+            { baseId: 'b9', pct: 3.0 }
+          ]
+        }
+      ],
+      usages: [
+        {
+          id: 'u1',
+          date: '2026-11-18',
+          jo: '110000000121',
+          machine: 'WH 07',
+          operator: 'Bejo P',
+          mode: 'FORMULA',
+          formulaId: 'f1',
+          label: 'PMS 485 C — Corporate Crimson Red',
+          weight: 45.0,
+          returnWeight: 3.5,
+          netWeight: 41.5,
+          breakdown: [
+            { baseId: 'b6', code: 'BSE-R02', name: 'Warm Red Naphthol Base PR170', qty: 21.60 },
+            { baseId: 'b3', code: 'BSE-Y01', name: 'Process Yellow Diarylide Base 12', qty: 7.20 },
+            { baseId: 'b7', code: 'EXT-NC01', name: 'Nitrocellulose Extender Varnish', qty: 11.70 },
+            { baseId: 'b8', code: 'SLV-EA01', name: 'Ethyl Acetate (EA) Fast Solvent', qty: 3.15 },
+            { baseId: 'b9', code: 'ADD-WX01', name: 'PE Wax Slip & Rub Additive', qty: 1.35 }
+          ]
+        },
+        {
+          id: 'u2',
+          date: '2026-11-19',
+          jo: '110000000122',
+          machine: 'WH 06',
+          operator: 'Asmin',
+          mode: 'FORMULA',
+          formulaId: 'f2',
+          label: 'PMS 286 C — Royal Sapphire Blue',
+          weight: 60.0,
+          returnWeight: 5.0,
+          netWeight: 55.0,
+          breakdown: [
+            { baseId: 'b1', code: 'BSE-C01', name: 'Process Cyan Pigment Base 15:3', qty: 31.20 },
+            { baseId: 'b2', code: 'BSE-M01', name: 'Process Magenta Rubine Base 57:1', qty: 7.20 },
+            { baseId: 'b7', code: 'EXT-NC01', name: 'Nitrocellulose Extender Varnish', qty: 14.40 },
+            { baseId: 'b8', code: 'SLV-EA01', name: 'Ethyl Acetate (EA) Fast Solvent', qty: 5.40 },
+            { baseId: 'b9', code: 'ADD-WX01', name: 'PE Wax Slip & Rub Additive', qty: 1.80 }
+          ]
+        },
+        {
+          id: 'u3',
+          date: '2026-11-20',
+          jo: '110000000123',
+          machine: 'FJ1',
+          operator: 'Ismail',
+          mode: 'FORMULA',
+          formulaId: 'f3',
+          label: 'WHT-OP90 — Super High Opacity Backing White',
+          weight: 80.0,
+          returnWeight: 4.0,
+          netWeight: 76.0,
+          breakdown: [
+            { baseId: 'b5', code: 'BSE-W01', name: 'High Opacity Titanium White PW6', qty: 54.40 },
+            { baseId: 'b7', code: 'EXT-NC01', name: 'Nitrocellulose Extender Varnish', qty: 16.00 },
+            { baseId: 'b8', code: 'SLV-EA01', name: 'Ethyl Acetate (EA) Fast Solvent', qty: 7.20 },
+            { baseId: 'b9', code: 'ADD-WX01', name: 'PE Wax Slip & Rub Additive', qty: 2.40 }
+          ]
+        }
+      ],
+      coas: [
+        {
+          id: 'c1',
+          coaNumber: 'COA/LAB/2611-001',
+          date: '2026-11-18',
+          batch: 'BTH-2611-039A',
+          colorName: 'PMS 485 C - Corporate Crimson Red',
+          customer: 'PT Indofood Fritolay',
+          jo: '110000000121',
+          substrate: 'OPP Matte 20µm / Corona 38 dyne',
+          stdLab: { L: 48.50, a: 62.40, b: 46.80 },
+          smpLab: { L: 48.82, a: 61.95, b: 47.30 },
+          tolDE: 1.5,
+          dL: 0.32,
+          da: -0.45,
+          db: 0.50,
+          dEab: 0.74,
+          dE2000: 0.58,
+          viscosity: '19.2 sec (Zahn #2 @25°C)',
+          fineness: '< 5 µm (Pass)',
+          adhesion: 'PASS',
+          rub: 'PASS',
+          analyst: 'Rina Marlina, S.Si',
+          manager: 'Ir. Hendra Wijaya',
+          status: 'PASSED'
+        },
+        {
+          id: 'c2',
+          coaNumber: 'COA/LAB/2611-002',
+          date: '2026-11-19',
+          batch: 'BTH-2611-041B',
+          colorName: 'PMS 286 C - Royal Sapphire Blue',
+          customer: 'PT Tirta Investama',
+          jo: '110000000122',
+          substrate: 'PET 12µm Clear Film',
+          stdLab: { L: 28.40, a: 14.10, b: -54.60 },
+          smpLab: { L: 27.95, a: 14.80, b: -53.90 },
+          tolDE: 1.8,
+          dL: -0.45,
+          da: 0.70,
+          db: 0.70,
+          dEab: 1.09,
+          dE2000: 0.79,
+          viscosity: '17.4 sec (Zahn #2 @25°C)',
+          fineness: '< 5 µm (Pass)',
+          adhesion: 'PASS',
+          rub: 'PASS',
+          analyst: 'Rina Marlina, S.Si',
+          manager: 'Ir. Hendra Wijaya',
+          status: 'PASSED'
+        },
+        {
+          id: 'c3',
+          coaNumber: 'COA/LAB/2611-003',
+          date: '2026-11-20',
+          batch: 'BTH-2611-045X',
+          colorName: 'PMS 355 C - Emerald Herbal Green',
+          customer: 'PT Kalbe Farma',
+          jo: '110000000123',
+          substrate: 'ALU Foil / PE Lamination',
+          stdLab: { L: 49.80, a: -52.40, b: 28.10 },
+          smpLab: { L: 51.40, a: -50.10, b: 29.80 },
+          tolDE: 1.5,
+          dL: 1.60,
+          da: 2.30,
+          db: 1.70,
+          dEab: 3.28,
+          dE2000: 2.15,
+          viscosity: '21.5 sec (Zahn #2 @25°C)',
+          fineness: '7.5 µm (High)',
+          adhesion: 'PASS',
+          rub: 'FAIL',
+          analyst: 'Rina Marlina, S.Si',
+          manager: 'Ir. Hendra Wijaya',
+          status: 'REJECTED'
+        }
+      ],
+      movements: [
+        { id: 'm1', timestamp: '2026-11-18 09:15', baseId: 'b6', baseName: 'BSE-R02 — Warm Red Naphthol Base PR170', type: 'OUT', qty: -21.60, balance: 64.20, ref: 'Mixing PrO 110000000121 (PMS 485 C)' },
+        { id: 'm2', timestamp: '2026-11-19 11:30', baseId: 'b1', baseName: 'BSE-C01 — Process Cyan Pigment Base 15:3', type: 'OUT', qty: -31.20, balance: 145.50, ref: 'Mixing PrO 110000000122 (PMS 286 C)' },
+        { id: 'm3', timestamp: '2026-11-20 08:40', baseId: 'b5', baseName: 'BSE-W01 — High Opacity Titanium White PW6', type: 'OUT', qty: -54.40, balance: 310.00, ref: 'Mixing PrO 110000000123 (WHT-OP90)' }
+      ]
+    };
+
+    let appData = loadData();
+    let selectedFormulaId = appData.formulas[0]?.id || null;
+    let baseUsageChart = null;
+    let machineUsageChart = null;
+
+    function loadData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        console.error('Error loading localStorage:', e);
+      }
+      const cloned = JSON.parse(JSON.stringify(DEFAULT_DATA));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(cloned));
+      return cloned;
+    }
+
+    function saveData() {
+      try {
+        const serialized = JSON.stringify(appData);
+        localStorage.setItem(STORAGE_KEY, serialized);
+        updateStorageIndicator(serialized.length);
+      } catch (e) {
+        showToast('Gagal menyimpan ke localStorage: ' + e.message, 'error');
+      }
+    }
+
+    function updateStorageIndicator(bytes) {
+      const kb = (bytes / 1024).toFixed(1);
+      const el = document.getElementById('storage-size');
+      if (el) el.textContent = `${kb} KB`;
+    }
+
+    // =========================================================================
+    // 2. COLORIMETRY ENGINE (CIELAB -> RGB, ΔE*ab, ΔE2000)
+    // =========================================================================
+    function labToRgbHex(L, a, b) {
+      let y = (L + 16) / 116;
+      let x = a / 500 + y;
+      let z = y - b / 200;
+
+      const x3 = x * x * x;
+      const y3 = y * y * y;
+      const z3 = z * z * z;
+
+      x = (x3 > 0.008856 ? x3 : (x - 16 / 116) / 7.787) * 95.047;
+      y = (y3 > 0.008856 ? y3 : (y - 16 / 116) / 7.787) * 100.000;
+      z = (z3 > 0.008856 ? z3 : (z - 16 / 116) / 7.787) * 108.883;
+
+      x /= 100; y /= 100; z /= 100;
+
+      let r = x * 3.2406 + y * -1.5372 + z * -0.4986;
+      let g = x * -0.9689 + y * 1.8758 + z * 0.0415;
+      let bl = x * 0.0557 + y * -0.2040 + z * 1.0570;
+
+      const gamma = c => c > 0.0031308 ? 1.055 * Math.pow(c, 1 / 2.4) - 0.055 : 12.92 * c;
+      r = Math.min(255, Math.max(0, Math.round(gamma(r) * 255)));
+      g = Math.min(255, Math.max(0, Math.round(gamma(g) * 255)));
+      bl = Math.min(255, Math.max(0, Math.round(gamma(bl) * 255)));
+
+      return '#' + [r, g, bl].map(v => v.toString(16).padStart(2, '0')).join('');
+    }
+
+    function calculateDeltaE2000(L1, a1, b1, L2, a2, b2) {
+      const rad2deg = rad => (rad * 180) / Math.PI;
+      const deg2rad = deg => (deg * Math.PI) / 180;
+
+      const C1 = Math.sqrt(a1 * a1 + b1 * b1);
+      const C2 = Math.sqrt(a2 * a2 + b2 * b2);
+      const avgC = (C1 + C2) / 2;
+      const avgC7 = Math.pow(avgC, 7);
+      const G = 0.5 * (1 - Math.sqrt(avgC7 / (avgC7 + Math.pow(25, 7))));
+
+      const a1p = (1 + G) * a1;
+      const a2p = (1 + G) * a2;
+      const C1p = Math.sqrt(a1p * a1p + b1 * b1);
+      const C2p = Math.sqrt(a2p * a2p + b2 * b2);
+
+      let h1p = (b1 === 0 && a1p === 0) ? 0 : rad2deg(Math.atan2(b1, a1p));
+      if (h1p < 0) h1p += 360;
+      let h2p = (b2 === 0 && a2p === 0) ? 0 : rad2deg(Math.atan2(b2, a2p));
+      if (h2p < 0) h2p += 360;
+
+      const dLp = L2 - L1;
+      const dCp = C2p - C1p;
+      let dhp = 0;
+      if (C1p * C2p !== 0) {
+        const diff = h2p - h1p;
+        if (Math.abs(diff) <= 180) dhp = diff;
+        else if (diff > 180) dhp = diff - 360;
+        else dhp = diff + 360;
+      }
+      const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin(deg2rad(dhp / 2));
+
+      const avgLp = (L1 + L2) / 2;
+      const avgCp = (C1p + C2p) / 2;
+      let avghp = h1p + h2p;
+      if (C1p * C2p !== 0) {
+        if (Math.abs(h1p - h2p) <= 180) avghp = (h1p + h2p) / 2;
+        else if (h1p + h2p < 360) avghp = (h1p + h2p + 360) / 2;
+        else avghp = (h1p + h2p - 360) / 2;
+      }
+
+      const T = 1 - 0.17 * Math.cos(deg2rad(avghp - 30)) +
+                0.24 * Math.cos(deg2rad(2 * avghp)) +
+                0.32 * Math.cos(deg2rad(3 * avghp + 6)) -
+                0.20 * Math.cos(deg2rad(4 * avghp - 63));
+      const dTheta = 30 * Math.exp(-Math.pow((avghp - 275) / 25, 2));
+      const avgCp7 = Math.pow(avgCp, 7);
+      const RC = 2 * Math.sqrt(avgCp7 / (avgCp7 + Math.pow(25, 7)));
+      const avgLp50Sq = Math.pow(avgLp - 50, 2);
+      const SL = 1 + (0.015 * avgLp50Sq) / Math.sqrt(20 + avgLp50Sq);
+      const SC = 1 + 0.045 * avgCp;
+      const SH = 1 + 0.015 * avgCp * T;
+      const RT = -Math.sin(deg2rad(2 * dTheta)) * RC;
+
+      const termL = dLp / SL;
+      const termC = dCp / SC;
+      const termH = dHp / SH;
+
+      return Math.sqrt(termL * termL + termC * termC + termH * termH + RT * termC * termH);
+    }
+
+    // =========================================================================
+    // 3. NAVIGATION & UI HELPERS
+    // =========================================================================
+    const TAB_META = {
+      dashboard: { title: 'Dashboard Ringkasan', subtitle: 'Monitoring stok base tinta, produksi mixing, dan status kualitas warna laboratorium' },
+      stock: { title: 'Stock Base Tinta', subtitle: 'Master inventaris pigmen, extender, solvent, additif, dan kartu mutasi stok' },
+      formula: { title: 'Formula Tinta & Kalkulator Resep', subtitle: 'Manajemen komposisi warna standar dan kalkulator kebutuhan batch produksi' },
+      usage: { title: 'Pemakaian Tinta & Mixing Log', subtitle: 'Pencatatan konsumsi tinta per Proses Order (PrO) & mesin dengan pemotongan stok otomatis' },
+      coa: { title: 'COA Delta Lab (CIELAB Spektrofotometer)', subtitle: 'Pengukuran selisih warna ΔE*ab / ΔE2000, parameter fisik QC, dan cetak sertifikat resmi' }
+    };
+
+    function switchTab(tabId) {
+      ['dashboard', 'stock', 'formula', 'usage', 'coa'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.add('hidden');
+        const btn = document.getElementById(`nav-${t}`);
+        btn.className = 'nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all';
+      });
+
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`nav-${tabId}`);
+      activeBtn.className = 'nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all bg-blue-600 text-white shadow-md shadow-blue-600/20';
+
+      document.getElementById('page-title').textContent = TAB_META[tabId].title;
+      document.getElementById('page-subtitle').textContent = TAB_META[tabId].subtitle;
+
+      const sidebar = document.getElementById('sidebar');
+      if (!sidebar.classList.contains('-translate-x-full') && window.innerWidth < 1024) {
+        toggleSidebar();
+      }
+
+      if (tabId === 'dashboard') renderDashboard();
+      if (tabId === 'stock') renderStockTable();
+      if (tabId === 'formula') { renderFormulaList(); renderFormulaDetail(); }
+      if (tabId === 'usage') renderUsageTable();
+      if (tabId === 'coa') { populateCOAFormulaSelect(); renderCOATable(); recalcLabPreview(); }
+      lucide.createIcons();
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+    }
+
+    function openModal(id) {
+      const el = document.getElementById(id);
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+      lucide.createIcons();
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const colors = {
+        success: 'bg-slate-900 text-white border-l-4 border-emerald-400',
+        error: 'bg-rose-950 text-white border-l-4 border-rose-500',
+        warning: 'bg-amber-950 text-white border-l-4 border-amber-400'
+      };
+      const icons = {
+        success: 'check-circle-2',
+        error: 'alert-octagon',
+        warning: 'alert-triangle'
+      };
+      const toast = document.createElement('div');
+      toast.className = `${colors[type]} px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-xs font-medium pointer-events-auto transition-all duration-300 translate-y-2 opacity-0`;
+      toast.innerHTML = `
+        <i data-lucide="${icons[type]}" class="w-4 h-4 shrink-0 ${type === 'success' ? 'text-emerald-400' : type === 'error' ? 'text-rose-400' : 'text-amber-400'}"></i>
+        <span class="flex-1">${message}</span>
+      `;
+      container.appendChild(toast);
+      lucide.createIcons();
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function formatNumber(num, dec = 2) {
+      return Number(num || 0).toLocaleString('id-ID', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    }
+
+    // =========================================================================
+    // 4. MODULE 1: DASHBOARD RINGKASAN
+    // =========================================================================
+    function renderDashboard() {
+      const totalStock = appData.bases.reduce((sum, b) => sum + Number(b.stock), 0);
+      const lowStockItems = appData.bases.filter(b => Number(b.stock) <= Number(b.minStock));
+
+      const badge = document.getElementById('badge-low-stock');
+      if (lowStockItems.length > 0) {
+        badge.textContent = lowStockItems.length;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const monthlyUsages = appData.usages.filter(u => u.date.startsWith(currentMonth));
+      const totalMonthlyKg = monthlyUsages.reduce((sum, u) => sum + Number(u.netWeight), 0);
+
+      const passCount = appData.coas.filter(c => c.status === 'PASSED').length;
+      const failCount = appData.coas.filter(c => c.status !== 'PASSED').length;
+      const passRate = appData.coas.length ? Math.round((passCount / appData.coas.length) * 100) : 100;
+
+      document.getElementById('kpi-total-stock').textContent = `${formatNumber(totalStock, 1)} kg`;
+      document.getElementById('kpi-stock-items').textContent = `${appData.bases.length} item bahan baku aktif`;
+      document.getElementById('kpi-total-formulas').textContent = appData.formulas.length;
+      document.getElementById('kpi-monthly-usage').textContent = `${formatNumber(totalMonthlyKg, 1)} kg`;
+      document.getElementById('kpi-monthly-jobs').textContent = `${monthlyUsages.length} Proses Order bulan ini`;
+      document.getElementById('kpi-coa-pass').textContent = `${passCount} PASS`;
+      document.getElementById('kpi-coa-fail').textContent = `${failCount} FAIL`;
+      document.getElementById('kpi-coa-rate').textContent = `Pass rate spektrofotometer: ${passRate}%`;
+
+      const alertBox = document.getElementById('low-stock-alert-box');
+      const alertList = document.getElementById('low-stock-list');
+      if (lowStockItems.length > 0) {
+        alertBox.classList.remove('hidden');
+        alertList.innerHTML = lowStockItems.map(b => `
+          <div class="bg-white/90 border border-rose-200 rounded-xl p-3 flex items-center justify-between">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="w-3.5 h-3.5 rounded-full shrink-0 border border-slate-300" style="background:${b.hex}"></span>
+              <div class="truncate">
+                <p class="text-xs font-bold text-slate-900 truncate">${b.code} — ${b.name}</p>
+                <p class="text-[11px] text-rose-600 font-mono">Sisa: <b>${formatNumber(b.stock)} kg</b> (Min: ${b.minStock} kg)</p>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        alertBox.classList.add('hidden');
+      }
+
+      const recentUsageEl = document.getElementById('dash-recent-usage');
+      recentUsageEl.innerHTML = appData.usages.slice().reverse().slice(0, 5).map(u => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-4">
+            <div class="font-mono font-bold text-slate-800">${u.jo}</div>
+            <div class="text-[11px] text-slate-400">${u.date}</div>
+          </td>
+          <td class="py-2.5 px-4 font-medium text-slate-700">${u.label}</td>
+          <td class="py-2.5 px-4 text-slate-500">${u.machine}</td>
+          <td class="py-2.5 px-4 text-right font-mono font-bold text-blue-700">${formatNumber(u.netWeight)} kg</td>
+        </tr>
+      `).join('') || `<tr><td colspan="4" class="py-6 text-center text-slate-400">Belum ada data pemakaian</td></tr>`;
+
+      const recentCOAEl = document.getElementById('dash-recent-coa');
+      recentCOAEl.innerHTML = appData.coas.slice().reverse().slice(0, 5).map(c => `
+        <tr class="hover:bg-slate-50 cursor-pointer" onclick="openCOAPreview('${c.id}')">
+          <td class="py-2.5 px-4">
+            <div class="font-mono font-bold text-slate-800">${c.coaNumber}</div>
+            <div class="text-[11px] text-slate-400">${c.batch}</div>
+          </td>
+          <td class="py-2.5 px-4 font-medium text-slate-700">${c.colorName}</td>
+          <td class="py-2.5 px-4 text-right font-mono font-bold">${formatNumber(c.dEab)}</td>
+          <td class="py-2.5 px-4 text-center">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${c.status === 'PASSED' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${c.status}</span>
+          </td>
+        </tr>
+      `).join('') || `<tr><td colspan="4" class="py-6 text-center text-slate-400">Belum ada data COA</td></tr>`;
+
+      renderDashboardCharts();
+    }
+
+    function renderDashboardCharts() {
+      const baseTotals = {};
+      appData.bases.forEach(b => {
+        baseTotals[b.id] = { label: b.code, qty: 0, color: b.hex === '#f8fafc' ? '#94a3b8' : b.hex };
+      });
+      appData.usages.forEach(u => {
+        (u.breakdown || []).forEach(item => {
+          if (baseTotals[item.baseId]) {
+            baseTotals[item.baseId].qty += Number(item.qty);
+          }
+        });
+      });
+
+      const baseArr = Object.values(baseTotals);
+      const ctx1 = document.getElementById('chart-base-usage');
+      if (baseUsageChart) baseUsageChart.destroy();
+      baseUsageChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: baseArr.map(x => x.label),
+          datasets: [{
+            label: 'Total Terpakai (kg)',
+            data: baseArr.map(x => Number(x.qty.toFixed(2))),
+            backgroundColor: baseArr.map(x => x.color),
+            borderRadius: 8,
+            borderWidth: 1,
+            borderColor: '#cbd5e1'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
+            x: { grid: { display: false }, ticks: { font: { size: 11, family: 'JetBrains Mono' } } }
+          }
+        }
+      });
+
+      const machineTotals = {};
+      appData.usages.forEach(u => {
+        machineTotals[u.machine] = (machineTotals[u.machine] || 0) + Number(u.netWeight);
+      });
+
+      const ctx2 = document.getElementById('chart-machine-usage');
+      if (machineUsageChart) machineUsageChart.destroy();
+      machineUsageChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(machineTotals),
+          datasets: [{
+            data: Object.values(machineTotals).map(v => Number(v.toFixed(2))),
+            backgroundColor: ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6'],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } }
+          }
+        }
+      });
+    }
+
+    // =========================================================================
+    // 5. MODULE 2: STOCK BASE TINTA
+    // =========================================================================
+    function renderStockTable() {
+      const q = document.getElementById('stock-search').value.toLowerCase();
+      const cat = document.getElementById('stock-filter-category').value;
+      const supplierFilter = document.getElementById('stock-filter-supplier').value;
+      const status = document.getElementById('stock-filter-status').value;
+
+      const filtered = appData.bases.filter(b => {
+        const matchQ = b.code.toLowerCase().includes(q) || b.name.toLowerCase().includes(q) || (b.batch || '').toLowerCase().includes(q) || (b.supplier || '').toLowerCase().includes(q);
+        const matchCat = cat === 'ALL' || b.category === cat;
+        const matchSup = supplierFilter === 'ALL' || (b.supplier || '').toLowerCase().includes(supplierFilter.toLowerCase());
+        const isLow = Number(b.stock) <= Number(b.minStock);
+        const matchStatus = status === 'ALL' || (status === 'MENIPIS' && isLow) || (status === 'AMAN' && !isLow);
+        return matchQ && matchCat && matchSup && matchStatus;
+      });
+
+      const tbody = document.getElementById('stock-table-body');
+      tbody.innerHTML = filtered.map(b => {
+        const isLow = Number(b.stock) <= Number(b.minStock);
+        return `
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td class="py-3.5 px-4">
+              <div class="flex items-center gap-2.5">
+                <span class="w-5 h-5 rounded-lg border border-slate-300 shadow-2xs shrink-0" style="background:${b.hex}"></span>
+                <span class="font-mono font-bold text-slate-900">${b.code}</span>
+              </div>
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="font-semibold text-slate-800">${b.name}</div>
+              <div class="text-xs text-slate-400">${b.supplier || '-'}</div>
+            </td>
+            <td class="py-3.5 px-4">
+              <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-medium">${b.category}</span>
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="font-mono text-xs font-semibold text-slate-700">${b.batch || '-'}</div>
+              <div class="text-[11px] text-slate-400">Exp: ${b.expiry || '-'}</div>
+            </td>
+            <td class="py-3.5 px-4 text-right font-mono font-extrabold text-sm ${isLow ? 'text-rose-600' : 'text-slate-900'}">
+              ${formatNumber(b.stock)} kg
+            </td>
+            <td class="py-3.5 px-4 text-right font-mono text-xs text-slate-500">
+              ${formatNumber(b.minStock, 1)} kg
+            </td>
+            <td class="py-3.5 px-4 text-center">
+              ${isLow
+                ? `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700"><span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping"></span> MENIPIS</span>`
+                : `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">AMAN</span>`
+              }
+            </td>
+            <td class="py-3.5 px-4 text-right">
+              <div class="inline-flex items-center gap-1">
+                <button onclick="openInboundModal('${b.id}')" class="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg" title="Stok Masuk">
+                  <i data-lucide="plus-square" class="w-4 h-4"></i>
+                </button>
+                <button onclick="openBaseModal('${b.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg" title="Edit Base">
+                  <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
+                <button onclick="openDeleteBaseModal('${b.id}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg" title="Hapus Stock">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('') || `<tr><td colspan="8" class="py-8 text-center text-slate-400 text-sm">Tidak ada data base tinta yang sesuai filter.</td></tr>`;
+      lucide.createIcons();
+    }
+
+    function openBaseModal(baseId = null) {
+      const form = document.getElementById('form-base');
+      form.reset();
+      if (baseId) {
+        const b = appData.bases.find(x => x.id === baseId);
+        document.getElementById('modal-base-title').textContent = `Edit Base Tinta — ${b.code}`;
+        document.getElementById('base-id').value = b.id;
+        document.getElementById('base-code').value = b.code;
+        document.getElementById('base-hex').value = b.hex || '#009ee3';
+        document.getElementById('base-name').value = b.name;
+        document.getElementById('base-category').value = b.category;
+        document.getElementById('base-batch').value = b.batch || '';
+        document.getElementById('base-stock').value = b.stock;
+        document.getElementById('base-min-stock').value = b.minStock;
+        document.getElementById('base-supplier').value = b.supplier || '';
+        document.getElementById('base-expiry').value = b.expiry || '';
+      } else {
+        document.getElementById('modal-base-title').textContent = 'Tambah Master Base Tinta Baru';
+        document.getElementById('base-id').value = '';
+        document.getElementById('base-supplier').value = 'PT DIC Graphics';
+        document.getElementById('base-expiry').value = '2027-12-31';
+      }
+      openModal('modal-base');
+    }
+
+    function saveBaseItem(e) {
+      e.preventDefault();
+      const id = document.getElementById('base-id').value;
+      const payload = {
+        id: id || 'b' + Date.now(),
+        code: document.getElementById('base-code').value.trim().toUpperCase(),
+        hex: document.getElementById('base-hex').value,
+        name: document.getElementById('base-name').value.trim(),
+        category: document.getElementById('base-category').value,
+        batch: document.getElementById('base-batch').value.trim(),
+        stock: parseFloat(document.getElementById('base-stock').value) || 0,
+        minStock: parseFloat(document.getElementById('base-min-stock').value) || 0,
+        supplier: document.getElementById('base-supplier').value.trim(),
+        expiry: document.getElementById('base-expiry').value
+      };
+
+      if (id) {
+        const idx = appData.bases.findIndex(x => x.id === id);
+        appData.bases[idx] = payload;
+        showToast(`Data ${payload.code} berhasil diperbarui.`);
+      } else {
+        appData.bases.push(payload);
+        appData.movements.push({
+          id: 'm' + Date.now(),
+          timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          baseId: payload.id,
+          baseName: `${payload.code} — ${payload.name}`,
+          type: 'IN',
+          qty: payload.stock,
+          balance: payload.stock,
+          ref: 'Stok Awal Master Base'
+        });
+        showToast(`Base baru ${payload.code} ditambahkan ke inventaris.`);
+      }
+      saveData();
+      closeModal('modal-base');
+      renderStockTable();
+      renderDashboard();
+    }
+
+    function openInboundModal(preselectId = null) {
+      const select = document.getElementById('inbound-base-id');
+      select.innerHTML = appData.bases.map(b => `<option value="${b.id}">${b.code} — ${b.name} (Sisa: ${formatNumber(b.stock)} kg)</option>`).join('');
+      if (preselectId) select.value = preselectId;
+      document.getElementById('inbound-qty').value = '';
+      document.getElementById('inbound-batch').value = '';
+      document.getElementById('inbound-note').value = '';
+      openModal('modal-inbound');
+    }
+
+    function submitInboundStock(e) {
+      e.preventDefault();
+      const baseId = document.getElementById('inbound-base-id').value;
+      const qty = parseFloat(document.getElementById('inbound-qty').value);
+      const newBatch = document.getElementById('inbound-batch').value.trim();
+      const note = document.getElementById('inbound-note').value.trim();
+
+      const base = appData.bases.find(b => b.id === baseId);
+      if (!base || qty <= 0) return;
+
+      base.stock = Number((Number(base.stock) + qty).toFixed(2));
+      if (newBatch) base.batch = newBatch;
+
+      appData.movements.push({
+        id: 'm' + Date.now(),
+        timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        baseId: base.id,
+        baseName: `${base.code} — ${base.name}`,
+        type: 'IN',
+        qty: qty,
+        balance: base.stock,
+        ref: note || 'Stok Masuk (Inbound)'
+      });
+
+      saveData();
+      closeModal('modal-inbound');
+      renderStockTable();
+      renderDashboard();
+      showToast(`Stok masuk +${formatNumber(qty)} kg untuk ${base.code} berhasil dicatat.`);
+    }
+
+    function openDeleteBaseModal(baseId = null) {
+      if (!appData.bases || appData.bases.length === 0) {
+        showToast('Tidak ada data stock base yang tersedia untuk dihapus.', 'warning');
+        return;
+      }
+      const select = document.getElementById('delete-base-select');
+      select.innerHTML = appData.bases.map(b =>
+        `<option value="${b.id}">${b.code} — ${b.name} (Sisa: ${formatNumber(b.stock)} kg)</option>`
+      ).join('');
+      if (baseId) select.value = baseId;
+      updateDeleteBaseInfo();
+      openModal('modal-delete-base');
+    }
+
+    function updateDeleteBaseInfo() {
+      const baseId = document.getElementById('delete-base-select').value;
+      const base = appData.bases.find(b => b.id === baseId);
+      if (!base) return;
+
+      document.getElementById('delete-base-desc').innerHTML = `Anda yakin ingin menghapus <b>${base.code} — ${base.name}</b> (Sisa stok: <b>${formatNumber(base.stock)} kg</b>)?`;
+
+      const usedInFormulas = appData.formulas.filter(f => (f.items || []).some(it => it.baseId === baseId));
+      const warnBox = document.getElementById('delete-base-warning');
+      if (usedInFormulas.length > 0) {
+        warnBox.textContent = `Perhatian: Base ini masih digunakan pada ${usedInFormulas.length} formula (${usedInFormulas.map(f => f.code).join(', ')}). Jika dihapus, komponen ini juga akan dikeluarkan dari resep tersebut.`;
+        warnBox.classList.remove('hidden');
+      } else {
+        warnBox.classList.add('hidden');
+      }
+    }
+
+    function confirmDeleteBase() {
+      const baseId = document.getElementById('delete-base-select').value;
+      const idx = appData.bases.findIndex(b => b.id === baseId);
+      if (idx === -1) return;
+
+      const deleted = appData.bases[idx];
+      appData.bases.splice(idx, 1);
+
+      appData.formulas.forEach(f => {
+        if (Array.isArray(f.items)) {
+          f.items = f.items.filter(it => it.baseId !== baseId);
+        }
+      });
+
+      appData.movements.push({
+        id: 'm' + Date.now(),
+        timestamp: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        baseId: deleted.id,
+        baseName: `${deleted.code} — ${deleted.name}`,
+        type: 'OUT',
+        qty: -Number(deleted.stock),
+        balance: 0,
+        ref: 'Penghapusan Item Stock Base'
+      });
+
+      saveData();
+      closeModal('modal-delete-base');
+      renderStockTable();
+      renderDashboard();
+      showToast(`Stock base ${deleted.code} berhasil dihapus.`, 'warning');
+    }
+
+    function openStockMovementModal() {
+      const tbody = document.getElementById('movement-table-body');
+      tbody.innerHTML = appData.movements.slice().reverse().map(m => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-4 font-mono text-slate-500">${m.timestamp}</td>
+          <td class="py-2.5 px-4 font-semibold text-slate-800">${m.baseName}</td>
+          <td class="py-2.5 px-4 text-center">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${m.type === 'IN' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">
+              ${m.type === 'IN' ? 'MASUK' : 'KELUAR'}
+            </span>
+          </td>
+          <td class="py-2.5 px-4 text-right font-mono font-bold ${m.qty >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+            ${m.qty >= 0 ? '+' : ''}${formatNumber(m.qty)} kg
+          </td>
+          <td class="py-2.5 px-4 text-right font-mono font-semibold text-slate-900">${formatNumber(m.balance)} kg</td>
+          <td class="py-2.5 px-4 text-slate-600">${m.ref}</td>
+        </tr>
+      `).join('') || `<tr><td colspan="6" class="py-6 text-center text-slate-400">Belum ada riwayat mutasi stok.</td></tr>`;
+      openModal('modal-movements');
+    }
+
+    // =========================================================================
+    // 6. MODULE 3: FORMULA TINTA & BATCH CALCULATOR
+    // =========================================================================
+    function renderFormulaList() {
+      const q = document.getElementById('formula-search').value.toLowerCase();
+      const filtered = appData.formulas.filter(f =>
+        f.code.toLowerCase().includes(q) ||
+        f.name.toLowerCase().includes(q) ||
+        f.customer.toLowerCase().includes(q)
+      );
+
+      const container = document.getElementById('formula-cards-list');
+      container.innerHTML = filtered.map(f => {
+        const isSelected = f.id === selectedFormulaId;
+        return `
+          <div onclick="selectFormula('${f.id}')" class="p-4 rounded-2xl border cursor-pointer transition-all ${isSelected ? 'bg-blue-50/70 border-blue-500 shadow-sm' : 'bg-white border-slate-200/80 hover:border-blue-300'}">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-xl border border-slate-300 shadow-inner shrink-0" style="background:${f.hex}"></div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono font-bold text-xs px-2 py-0.5 bg-slate-900 text-white rounded-md">${f.code}</span>
+                    <span class="text-[11px] font-semibold text-blue-600">${f.type}</span>
+                  </div>
+                  <h4 class="font-bold text-slate-900 text-sm mt-1">${f.name}</h4>
+                  <p class="text-xs text-slate-500">${f.customer}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('') || `<div class="bg-white p-6 rounded-2xl border border-slate-200 text-center text-xs text-slate-400">Formula tidak ditemukan.</div>`;
+    }
+
+    function selectFormula(id) {
+      selectedFormulaId = id;
+      renderFormulaList();
+      renderFormulaDetail();
+    }
+
+    function renderFormulaDetail() {
+      const panel = document.getElementById('formula-detail-panel');
+      const f = appData.formulas.find(x => x.id === selectedFormulaId) || appData.formulas[0];
+      if (!f) {
+        panel.innerHTML = `<div class="py-12 text-center text-slate-400 text-sm">Belum ada formula tersimpan. Klik "Buat Formula" untuk memulai.</div>`;
+        return;
+      }
+      selectedFormulaId = f.id;
+      const batchWeight = parseFloat(document.getElementById('calc-batch-weight')?.value) || 25;
+
+      let allStockEnough = true;
+      const rowsHtml = f.items.map(item => {
+        const base = appData.bases.find(b => b.id === item.baseId);
+        const reqKg = (batchWeight * item.pct) / 100;
+        const reqGram = reqKg * 1000;
+        const avail = base ? Number(base.stock) : 0;
+        const enough = avail >= reqKg;
+        if (!enough) allStockEnough = false;
+
+        return `
+          <tr class="border-b border-slate-100">
+            <td class="py-2.5 px-3">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full border border-slate-300 shrink-0" style="background:${base?.hex || '#ccc'}"></span>
+                <div>
+                  <div class="font-mono font-bold text-xs text-slate-900">${base?.code || 'N/A'}</div>
+                  <div class="text-xs text-slate-600">${base?.name || 'Base dihapus'}</div>
+                </div>
+              </div>
+            </td>
+            <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-800">${formatNumber(item.pct, 2)}%</td>
+            <td class="py-2.5 px-3 text-right font-mono font-extrabold text-blue-700">${formatNumber(reqKg, 3)} kg</td>
+            <td class="py-2.5 px-3 text-right font-mono text-xs text-slate-500">${Math.round(reqGram).toLocaleString('id-ID')} g</td>
+            <td class="py-2.5 px-3 text-right">
+              <span class="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold ${enough ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-100 text-rose-700'}">
+                ${formatNumber(avail, 1)} kg ${enough ? '✓' : 'KURANG'}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      panel.innerHTML = `
+        <div class="space-y-5">
+          <!-- Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div class="flex items-center gap-3.5">
+              <div class="w-14 h-14 rounded-2xl border border-slate-300 shadow-inner shrink-0" style="background:${f.hex}"></div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2.5 py-0.5 bg-slate-900 text-white font-mono text-xs font-bold rounded-lg">${f.code}</span>
+                  <span class="px-2.5 py-0.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg">${f.type}</span>
+                </div>
+                <h3 class="text-lg font-extrabold text-slate-900 mt-1">${f.name}</h3>
+                <p class="text-xs text-slate-500">Customer: <b class="text-slate-700">${f.customer}</b></p>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button onclick="openDeleteFormulaModal('${f.id}')" class="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Hapus
+              </button>
+              <button onclick="openFormulaEditor('${f.id}')" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Edit Resep
+              </button>
+              <button onclick="useFormulaForMixing('${f.id}')" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i> Mixing Sekarang
+              </button>
+            </div>
+          </div>
+
+          <!-- Specs Grid -->
+          <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 text-xs">
+            <div>
+              <span class="text-slate-400 block">Target Viskositas</span>
+              <span class="font-bold text-slate-800">${f.targetViscosity}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block">Toleransi ΔE</span>
+              <span class="font-mono font-bold text-slate-800">Max ΔE ≤ ${f.targetDE}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block">Standard CIELAB</span>
+              <span class="font-mono font-bold text-slate-800">L:${f.stdLab?.L ?? 50} a:${f.stdLab?.a ?? 0} b:${f.stdLab?.b ?? 0}</span>
+            </div>
+          </div>
+
+          <!-- Interactive Batch Calculator -->
+          <div class="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h4 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                <i data-lucide="calculator" class="w-4 h-4"></i> Kalkulator Kebutuhan Batch Produksi
+              </h4>
+              <p class="text-[11px] text-slate-300 mt-0.5">Masukkan target berat tinta yang akan di-mixing untuk cek kebutuhan & stok</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input type="number" id="calc-batch-weight" step="0.5" min="0.5" value="${batchWeight}" oninput="renderFormulaDetail()" class="w-24 px-3 py-2 bg-slate-950 border border-cyan-500/60 rounded-xl text-right font-mono font-bold text-base text-cyan-300 focus:outline-none">
+              <span class="text-sm font-bold text-slate-300">kg</span>
+            </div>
+          </div>
+
+          <!-- Composition Table -->
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase text-slate-500">
+                  <th class="py-2.5 px-3">Komponen Base</th>
+                  <th class="py-2.5 px-3 text-right">Rasio (%)</th>
+                  <th class="py-2.5 px-3 text-right">Kebutuhan (kg)</th>
+                  <th class="py-2.5 px-3 text-right">Gram (g)</th>
+                  <th class="py-2.5 px-3 text-right">Stok Gudang</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot>
+                <tr class="bg-slate-50 font-bold text-xs">
+                  <td class="py-2.5 px-3">TOTAL BATCH</td>
+                  <td class="py-2.5 px-3 text-right font-mono">100.00%</td>
+                  <td class="py-2.5 px-3 text-right font-mono text-blue-700">${formatNumber(batchWeight, 3)} kg</td>
+                  <td class="py-2.5 px-3 text-right font-mono">${Math.round(batchWeight * 1000).toLocaleString('id-ID')} g</td>
+                  <td class="py-2.5 px-3 text-right">
+                    ${allStockEnough
+                      ? `<span class="text-emerald-600 font-bold">SIAP MIXING ✓</span>`
+                      : `<span class="text-rose-600 font-bold">STOK KURANG ⚠</span>`}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      `;
+      lucide.createIcons();
+    }
+
+    function openFormulaEditor(formulaId = null) {
+      const container = document.getElementById('formula-rows-container');
+      container.innerHTML = '';
+
+      if (formulaId) {
+        const f = appData.formulas.find(x => x.id === formulaId);
+        document.getElementById('formula-editor-title').textContent = `Edit Formula — ${f.code}`;
+        document.getElementById('edit-formula-id').value = f.id;
+        document.getElementById('fml-code').value = f.code;
+        document.getElementById('fml-name').value = f.name;
+        document.getElementById('fml-type').value = f.type;
+        document.getElementById('fml-customer').value = f.customer;
+        document.getElementById('fml-viscosity').value = f.targetViscosity;
+        document.getElementById('fml-target-de').value = f.targetDE;
+        document.getElementById('fml-hex').value = f.hex || '#0033a0';
+        document.getElementById('fml-lab-l').value = f.stdLab?.L ?? 50;
+        document.getElementById('fml-lab-a').value = f.stdLab?.a ?? 0;
+        document.getElementById('fml-lab-b').value = f.stdLab?.b ?? 0;
+        f.items.forEach(item => addFormulaRow(item.baseId, item.pct));
+      } else {
+        document.getElementById('formula-editor-title').textContent = 'Builder Formula Tinta Baru';
+        document.getElementById('edit-formula-id').value = '';
+        document.getElementById('fml-code').value = '';
+        document.getElementById('fml-name').value = '';
+        document.getElementById('fml-customer').value = '';
+        addFormulaRow(appData.bases[0]?.id, 50);
+        addFormulaRow(appData.bases[6]?.id, 35);
+        addFormulaRow(appData.bases[7]?.id, 15);
+      }
+      recalcFormulaPct();
+      openModal('modal-formula-editor');
+    }
+
+    function addFormulaRow(selectedBaseId = '', pctVal = '') {
+      const container = document.getElementById('formula-rows-container');
+      const row = document.createElement('div');
+      row.className = 'formula-comp-row grid grid-cols-12 gap-2 items-center';
+      const options = appData.bases.map(b => `<option value="${b.id}" ${b.id === selectedBaseId ? 'selected' : ''}>${b.code} — ${b.name} (${formatNumber(b.stock, 1)} kg)</option>`).join('');
+
+      row.innerHTML = `
+        <div class="col-span-8">
+          <select class="fml-row-base w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs">${options}</select>
+        </div>
+        <div class="col-span-3">
+          <div class="relative">
+            <input type="number" step="0.01" min="0.01" max="100" value="${pctVal}" oninput="recalcFormulaPct()" required placeholder="0.0" class="fml-row-pct w-full pr-6 pl-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-right font-bold">
+            <span class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400">%</span>
+          </div>
+        </div>
+        <div class="col-span-1 text-right">
+          <button type="button" onclick="this.closest('.formula-comp-row').remove(); recalcFormulaPct();" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      `;
+      container.appendChild(row);
+      lucide.createIcons();
+      recalcFormulaPct();
+    }
+
+    function recalcFormulaPct() {
+      const inputs = document.querySelectorAll('.fml-row-pct');
+      let sum = 0;
+      inputs.forEach(inp => sum += parseFloat(inp.value) || 0);
+      const el = document.getElementById('formula-total-pct');
+      el.textContent = `${sum.toFixed(2)}%`;
+      if (Math.abs(sum - 100) < 0.01) {
+        el.className = 'font-mono text-sm text-emerald-600 font-extrabold';
+      } else {
+        el.className = 'font-mono text-sm text-rose-600 font-extrabold';
+      }
+      return sum;
+    }
+
+    function saveFormula(e) {
+      e.preventDefault();
+      const totalPct = recalcFormulaPct();
+      if (Math.abs(totalPct - 100) > 0.01) {
+        showToast(`Total persentase komposisi harus tepat 100% (Saat ini: ${totalPct.toFixed(2)}%)`, 'error');
+        return;
+      }
+
+      const rows = document.querySelectorAll('.formula-comp-row');
+      if (rows.length === 0) {
+        showToast('Tambahkan minimal 1 komponen base tinta.', 'error');
+        return;
+      }
+
+      const items = [];
+      rows.forEach(r => {
+        items.push({
+          baseId: r.querySelector('.fml-row-base').value,
+          pct: parseFloat(r.querySelector('.fml-row-pct').value)
+        });
+      });
+
+      const id = document.getElementById('edit-formula-id').value;
+      const payload = {
+        id: id || 'f' + Date.now(),
+        code: document.getElementById('fml-code').value.trim().toUpperCase(),
+        name: document.getElementById('fml-name').value.trim(),
+        type: document.getElementById('fml-type').value,
+        customer: document.getElementById('fml-customer').value.trim(),
+        targetViscosity: document.getElementById('fml-viscosity').value.trim(),
+        targetDE: parseFloat(document.getElementById('fml-target-de').value) || 1.5,
+        hex: document.getElementById('fml-hex').value,
+        stdLab: {
+          L: parseFloat(document.getElementById('fml-lab-l').value) || 50,
+          a: parseFloat(document.getElementById('fml-lab-a').value) || 0,
+          b: parseFloat(document.getElementById('fml-lab-b').value) || 0
+        },
+        items
+      };
+
+      if (id) {
+        const idx = appData.formulas.findIndex(x => x.id === id);
+        appData.formulas[idx] = payload;
+        showToast(`Formula ${payload.code} diperbarui.`);
+      } else {
+        appData.formulas.push(payload);
+        selectedFormulaId = payload.id;
+        showToast(`Formula baru ${payload.code} berhasil disimpan.`);
+      }
+
+      saveData();
+      closeModal('modal-formula-editor');
+      renderFormulaList();
+      renderFormulaDetail();
+      renderDashboard();
+    }
+
+    function useFormulaForMixing(formulaId) {
+      const batchWeight = parseFloat(document.getElementById('calc-batch-weight')?.value) || 25;
+      switchTab('usage');
+      openUsageModal(formulaId, batchWeight);
+    }
+
+    function openDeleteFormulaModal(formulaId = null) {
+      if (!appData.formulas || appData.formulas.length === 0) {
+        showToast('Tidak ada data formula warna yang tersedia untuk dihapus.', 'warning');
+        return;
+      }
+
+      const select = document.getElementById('delete-formula-select');
+      select.innerHTML = appData.formulas.map(f =>
+        `<option value="${f.id}">${f.code} — ${f.name} (${f.customer})</option>`
+      ).join('');
+
+      if (formulaId) {
+        select.value = formulaId;
+      } else if (selectedFormulaId) {
+        select.value = selectedFormulaId;
+      }
+
+      updateDeleteFormulaInfo();
+      openModal('modal-delete-formula');
+    }
+
+    function updateDeleteFormulaInfo() {
+      const formulaId = document.getElementById('delete-formula-select').value;
+      const formula = appData.formulas.find(f => f.id === formulaId);
+      if (!formula) return;
+
+      document.getElementById('delete-formula-desc').innerHTML = `Anda yakin ingin menghapus formula <b>${formula.code} — ${formula.name}</b> milik customer <b>${formula.customer}</b>?`;
+
+      const usedInLogs = appData.usages.filter(u => u.formulaId === formulaId);
+      const warnBox = document.getElementById('delete-formula-warning');
+      if (usedInLogs.length > 0) {
+        warnBox.textContent = `Catatan: Formula ini pernah dipakai pada ${usedInLogs.length} riwayat mixing. Menghapus formula tidak akan mengubah riwayat pemakaian yang sudah tercatat.`;
+        warnBox.classList.remove('hidden');
+      } else {
+        warnBox.classList.add('hidden');
+      }
+    }
+
+    function confirmDeleteFormula() {
+      const formulaId = document.getElementById('delete-formula-select').value;
+      const idx = appData.formulas.findIndex(f => f.id === formulaId);
+      if (idx === -1) return;
+
+      const deleted = appData.formulas[idx];
+      appData.formulas.splice(idx, 1);
+
+      if (selectedFormulaId === formulaId) {
+        selectedFormulaId = appData.formulas[0]?.id || null;
+      }
+
+      saveData();
+      closeModal('modal-delete-formula');
+      renderFormulaList();
+      renderFormulaDetail();
+      renderDashboard();
+      showToast(`Formula ${deleted.code} berhasil dihapus.`, 'warning');
+    }
+
+    // =========================================================================
+    // 7. MODULE 4: PEMAKAIAN TINTA & MIXING LOG
+    // =========================================================================
+    function renderUsageTable() {
+      const machineFilter = document.getElementById('usage-filter-machine').value;
+      const operatorFilter = document.getElementById('usage-filter-operator').value;
+      const startFilter = document.getElementById('usage-filter-start').value;
+      const endFilter = document.getElementById('usage-filter-end').value;
+
+      const filtered = appData.usages.filter(u => {
+        const matchMachine = machineFilter === 'ALL' || u.machine === machineFilter;
+        const matchOperator = operatorFilter === 'ALL' || u.operator === operatorFilter;
+        const matchStart = !startFilter || u.date >= startFilter;
+        const matchEnd = !endFilter || u.date <= endFilter;
+        return matchMachine && matchOperator && matchStart && matchEnd;
+      });
+
+      const tbody = document.getElementById('usage-table-body');
+      tbody.innerHTML = filtered.slice().reverse().map(u => `
+        <tr class="hover:bg-slate-50/80">
+          <td class="py-3.5 px-4">
+            <div class="font-mono font-bold text-slate-900">${u.jo}</div>
+            <div class="text-xs text-slate-400">${u.date}</div>
+          </td>
+          <td class="py-3.5 px-4">
+            <div class="font-semibold text-slate-800">${u.machine}</div>
+            <div class="text-xs text-slate-500">Op: ${u.operator}</div>
+          </td>
+          <td class="py-3.5 px-4">
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${u.mode === 'FORMULA' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'}">${u.mode}</span>
+            <div class="font-medium text-slate-800 mt-0.5">${u.label}</div>
+          </td>
+          <td class="py-3.5 px-4 text-right font-mono text-slate-700">${formatNumber(u.weight)} kg</td>
+          <td class="py-3.5 px-4 text-right font-mono text-emerald-600">${u.returnWeight > 0 ? '-' + formatNumber(u.returnWeight) + ' kg' : '0.00 kg'}</td>
+          <td class="py-3.5 px-4 text-right font-mono font-extrabold text-blue-700">${formatNumber(u.netWeight)} kg</td>
+          <td class="py-3.5 px-4 text-right">
+            <span class="text-[11px] text-slate-400 font-mono">${(u.breakdown || []).length} base</span>
+          </td>
+        </tr>
+      `).join('') || `<tr><td colspan="7" class="py-8 text-center text-slate-400">Belum ada catatan pemakaian tinta pada filter ini.</td></tr>`;
+    }
+
+    function openUsageModal(preFormulaId = null, preWeight = 15) {
+      document.getElementById('usg-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('usg-jo').value = String(110000000121 + appData.usages.length);
+      document.getElementById('usg-weight').value = preWeight;
+      document.getElementById('usg-return').value = 0;
+
+      const fSelect = document.getElementById('usg-formula-id');
+      fSelect.innerHTML = appData.formulas.map(f => `<option value="${f.id}">${f.code} — ${f.name} (${f.customer})</option>`).join('');
+      if (preFormulaId) {
+        document.getElementById('usg-mode').value = 'FORMULA';
+        fSelect.value = preFormulaId;
+      }
+
+      const bSelect = document.getElementById('usg-direct-base-id');
+      bSelect.innerHTML = appData.bases.map(b => `<option value="${b.id}">${b.code} — ${b.name} (Stok: ${formatNumber(b.stock)} kg)</option>`).join('');
+
+      toggleUsageMode();
+      openModal('modal-usage');
+    }
+
+    function toggleUsageMode() {
+      const mode = document.getElementById('usg-mode').value;
+      document.getElementById('usg-formula-box').classList.toggle('hidden', mode !== 'FORMULA');
+      document.getElementById('usg-direct-box').classList.toggle('hidden', mode !== 'DIRECT');
+      previewUsageBreakdown();
+    }
+
+    function previewUsageBreakdown() {
+      const mode = document.getElementById('usg-mode').value;
+      const weight = parseFloat(document.getElementById('usg-weight').value) || 0;
+      const ret = parseFloat(document.getElementById('usg-return').value) || 0;
+      const net = Math.max(0, weight - ret);
+      document.getElementById('usg-netto-badge').textContent = `Netto Terpakai: ${formatNumber(net)} kg`;
+
+      const listEl = document.getElementById('usg-breakdown-list');
+      const submitBtn = document.getElementById('btn-submit-usage');
+      let stockShortage = false;
+
+      if (mode === 'FORMULA') {
+        const fId = document.getElementById('usg-formula-id').value;
+        const f = appData.formulas.find(x => x.id === fId);
+        if (!f) return;
+
+        listEl.innerHTML = f.items.map(item => {
+          const base = appData.bases.find(b => b.id === item.baseId);
+          const needed = Number(((weight * item.pct) / 100).toFixed(2));
+          const avail = base ? Number(base.stock) : 0;
+          const ok = avail >= needed;
+          if (!ok) stockShortage = true;
+
+          return `
+            <div class="flex items-center justify-between py-1 border-b border-slate-200/60 last:border-0">
+              <span class="text-slate-700"><b>${base?.code}</b> (${item.pct}%)</span>
+              <span class="font-mono ${ok ? 'text-slate-900' : 'text-rose-600 font-bold'}">
+                -${formatNumber(needed)} kg <span class="text-[11px] text-slate-400">(Stok: ${formatNumber(avail)} kg)</span>
+              </span>
+            </div>
+          `;
+        }).join('');
+      } else {
+        const bId = document.getElementById('usg-direct-base-id').value;
+        const base = appData.bases.find(b => b.id === bId);
+        if (!base) return;
+        const ok = Number(base.stock) >= weight;
+        if (!ok) stockShortage = true;
+
+        listEl.innerHTML = `
+          <div class="flex items-center justify-between py-1">
+            <span class="text-slate-700"><b>${base.code}</b> — ${base.name}</span>
+            <span class="font-mono ${ok ? 'text-slate-900' : 'text-rose-600 font-bold'}">
+              -${formatNumber(weight)} kg <span class="text-[11px] text-slate-400">(Stok: ${formatNumber(base.stock)} kg)</span>
+            </span>
+          </div>
+        `;
+      }
+
+      if (stockShortage) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        submitBtn.textContent = 'Stok Base Tidak Mencukupi';
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        submitBtn.textContent = 'Simpan & Potong Stok';
+      }
+    }
+
+    function submitInkUsage(e) {
+      e.preventDefault();
+      const date = document.getElementById('usg-date').value;
+      const jo = document.getElementById('usg-jo').value.trim().toUpperCase();
+      const machine = document.getElementById('usg-machine').value;
+      const operator = document.getElementById('usg-operator').value.trim();
+      const mode = document.getElementById('usg-mode').value;
+      const weight = parseFloat(document.getElementById('usg-weight').value) || 0;
+      const returnWeight = parseFloat(document.getElementById('usg-return').value) || 0;
+      const netWeight = Math.max(0, Number((weight - returnWeight).toFixed(2)));
+
+      let label = '';
+      let formulaId = null;
+      const breakdown = [];
+
+      if (mode === 'FORMULA') {
+        formulaId = document.getElementById('usg-formula-id').value;
+        const f = appData.formulas.find(x => x.id === formulaId);
+        label = `${f.code} — ${f.name}`;
+        f.items.forEach(item => {
+          const base = appData.bases.find(b => b.id === item.baseId);
+          const qty = Number(((weight * item.pct) / 100).toFixed(2));
+          breakdown.push({ baseId: base.id, code: base.code, name: base.name, qty });
+        });
+      } else {
+        const bId = document.getElementById('usg-direct-base-id').value;
+        const base = appData.bases.find(b => b.id === bId);
+        label = `${base.code} — ${base.name} (Direct)`;
+        breakdown.push({ baseId: base.id, code: base.code, name: base.name, qty: weight });
+      }
+
+      const nowStr = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      breakdown.forEach(item => {
+        const base = appData.bases.find(b => b.id === item.baseId);
+        base.stock = Math.max(0, Number((Number(base.stock) - item.qty).toFixed(2)));
+        appData.movements.push({
+          id: 'm' + Date.now() + Math.random().toString(36).slice(2, 5),
+          timestamp: nowStr,
+          baseId: base.id,
+          baseName: `${base.code} — ${base.name}`,
+          type: 'OUT',
+          qty: -item.qty,
+          balance: base.stock,
+          ref: `Mixing PrO ${jo} (${machine})`
+        });
+      });
+
+      appData.usages.push({
+        id: 'u' + Date.now(),
+        date, jo, machine, operator, mode, formulaId, label, weight, returnWeight, netWeight, breakdown
+      });
+
+      saveData();
+      closeModal('modal-usage');
+      renderUsageTable();
+      renderDashboard();
+      showToast(`Pemakaian PrO ${jo} (${formatNumber(weight)} kg) dicatat & stok base otomatis berkurang!`);
+    }
+
+    function exportUsageCSV() {
+      const headers = ['Tanggal', 'Proses_Order_PrO', 'Mesin', 'Operator', 'Mode', 'Formula_Tinta', 'Mixing_kg', 'Return_kg', 'Netto_kg'];
+      const rows = appData.usages.map(u => [
+        u.date, u.jo, `"${u.machine}"`, `"${u.operator}"`, u.mode, `"${u.label}"`, u.weight, u.returnWeight, u.netWeight
+      ]);
+      const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Laporan_Pemakaian_Tinta_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Laporan pemakaian tinta berhasil diekspor ke CSV.');
+    }
+
+    // =========================================================================
+    // 8. MODULE 5: COA DELTA LAB (CIELAB & CERTIFICATE GENERATOR)
+    // =========================================================================
+    function populateCOAFormulaSelect() {
+      const sel = document.getElementById('coa-formula-select');
+      sel.innerHTML = `<option value="">-- Manual / Custom Sample --</option>` +
+        appData.formulas.map(f => `<option value="${f.id}">${f.code} — ${f.name}</option>`).join('');
+
+      if (!document.getElementById('coa-edit-id').value) {
+        document.getElementById('coa-number').value = `COA/LAB/${new Date().toISOString().slice(2, 7).replace('-', '')}-${String(appData.coas.length + 1).padStart(3, '0')}`;
+        document.getElementById('coa-date').value = new Date().toISOString().slice(0, 10);
+      }
+    }
+
+    function prefillCOAFromFormula() {
+      const fId = document.getElementById('coa-formula-select').value;
+      const f = appData.formulas.find(x => x.id === fId);
+      if (!f) return;
+
+      document.getElementById('coa-color-name').value = `${f.code} - ${f.name}`;
+      document.getElementById('coa-customer').value = f.customer;
+      document.getElementById('coa-tol-de').value = f.targetDE;
+      if (f.stdLab) {
+        document.getElementById('lab-std-l').value = f.stdLab.L;
+        document.getElementById('lab-std-a').value = f.stdLab.a;
+        document.getElementById('lab-std-b').value = f.stdLab.b;
+      }
+      recalcLabPreview();
+    }
+
+    function recalcLabPreview() {
+      const stdL = parseFloat(document.getElementById('lab-std-l').value) || 0;
+      const stda = parseFloat(document.getElementById('lab-std-a').value) || 0;
+      const stdb = parseFloat(document.getElementById('lab-std-b').value) || 0;
+
+      const smpL = parseFloat(document.getElementById('lab-smp-l').value) || 0;
+      const smpa = parseFloat(document.getElementById('lab-smp-a').value) || 0;
+      const smpb = parseFloat(document.getElementById('lab-smp-b').value) || 0;
+
+      const tolDE = parseFloat(document.getElementById('coa-tol-de').value) || 2.0;
+
+      const dL = smpL - stdL;
+      const da = smpa - stda;
+      const db = smpb - stdb;
+      const dEab = Math.sqrt(dL * dL + da * da + db * db);
+      const dE2000 = calculateDeltaE2000(stdL, stda, stdb, smpL, smpa, smpb);
+
+      const dirL = Math.abs(dL) < 0.05 ? 'Equal' : (dL > 0 ? 'Lighter' : 'Darker');
+      const dira = Math.abs(da) < 0.05 ? 'Equal' : (da > 0 ? 'Redder' : 'Greener');
+      const dirb = Math.abs(db) < 0.05 ? 'Equal' : (db > 0 ? 'Yellower' : 'Bluer');
+
+      document.getElementById('live-dl').textContent = `${dL >= 0 ? '+' : ''}${dL.toFixed(2)} (${dirL})`;
+      document.getElementById('live-da').textContent = `${da >= 0 ? '+' : ''}${da.toFixed(2)} (${dira})`;
+      document.getElementById('live-db').textContent = `${db >= 0 ? '+' : ''}${db.toFixed(2)} (${dirb})`;
+
+      const deEl = document.getElementById('live-de');
+      deEl.textContent = `${dEab.toFixed(2)} / ${dE2000.toFixed(2)}`;
+      deEl.className = `text-sm font-extrabold ${dEab <= tolDE ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      document.getElementById('swatch-std').style.background = labToRgbHex(stdL, stda, stdb);
+      document.getElementById('swatch-smp').style.background = labToRgbHex(smpL, smpa, smpb);
+
+      const adhesion = document.getElementById('coa-adhesion').value;
+      const rub = document.getElementById('coa-rub').value;
+      const isPass = dEab <= tolDE && adhesion === 'PASS' && rub === 'PASS';
+
+      const verdictEl = document.getElementById('coa-live-verdict');
+      if (isPass) {
+        verdictEl.textContent = 'KEPUTUSAN: PASSED';
+        verdictEl.className = 'px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-extrabold';
+      } else {
+        verdictEl.textContent = 'KEPUTUSAN: REJECTED';
+        verdictEl.className = 'px-3 py-1.5 rounded-xl bg-rose-100 text-rose-800 text-xs font-extrabold';
+      }
+
+      return { stdL, stda, stdb, smpL, smpa, smpb, tolDE, dL, da, db, dEab, dE2000, isPass };
+    }
+
+    function saveCOA(e) {
+      e.preventDefault();
+      const calc = recalcLabPreview();
+      const editId = document.getElementById('coa-edit-id').value;
+
+      const payload = {
+        id: editId || 'c' + Date.now(),
+        coaNumber: document.getElementById('coa-number').value.trim(),
+        date: document.getElementById('coa-date').value,
+        batch: document.getElementById('coa-batch').value.trim().toUpperCase(),
+        colorName: document.getElementById('coa-color-name').value.trim(),
+        customer: document.getElementById('coa-customer').value.trim(),
+        jo: document.getElementById('coa-jo').value.trim().toUpperCase(),
+        substrate: document.getElementById('coa-substrate').value.trim(),
+        stdLab: { L: calc.stdL, a: calc.stda, b: calc.stdb },
+        smpLab: { L: calc.smpL, a: calc.smpa, b: calc.smpb },
+        tolDE: calc.tolDE,
+        dL: Number(calc.dL.toFixed(2)),
+        da: Number(calc.da.toFixed(2)),
+        db: Number(calc.db.toFixed(2)),
+        dEab: Number(calc.dEab.toFixed(2)),
+        dE2000: Number(calc.dE2000.toFixed(2)),
+        viscosity: document.getElementById('coa-viscosity').value.trim(),
+        fineness: document.getElementById('coa-fineness').value.trim(),
+        adhesion: document.getElementById('coa-adhesion').value,
+        rub: document.getElementById('coa-rub').value,
+        analyst: document.getElementById('coa-analyst').value.trim(),
+        manager: document.getElementById('coa-manager').value.trim(),
+        status: calc.isPass ? 'PASSED' : 'REJECTED'
+      };
+
+      if (editId) {
+        const idx = appData.coas.findIndex(x => x.id === editId);
+        appData.coas[idx] = payload;
+        showToast(`COA ${payload.coaNumber} berhasil diperbarui.`);
+      } else {
+        appData.coas.push(payload);
+        showToast(`COA ${payload.coaNumber} (${payload.status}) berhasil diterbitkan!`);
+      }
+
+      saveData();
+      resetCOAForm();
+      renderCOATable();
+      renderDashboard();
+      openCOAPreview(payload.id);
+    }
+
+    function resetCOAForm() {
+      document.getElementById('coa-edit-id').value = '';
+      document.getElementById('coa-form-badge').textContent = 'NEW COA';
+      document.getElementById('coa-number').value = `COA/LAB/${new Date().toISOString().slice(2, 7).replace('-', '')}-${String(appData.coas.length + 1).padStart(3, '0')}`;
+      document.getElementById('coa-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('coa-batch').value = '';
+      document.getElementById('coa-jo').value = '';
+      recalcLabPreview();
+    }
+
+    function renderCOATable() {
+      const q = document.getElementById('coa-search').value.toLowerCase();
+      const filtered = appData.coas.filter(c =>
+        c.coaNumber.toLowerCase().includes(q) ||
+        c.batch.toLowerCase().includes(q) ||
+        c.colorName.toLowerCase().includes(q) ||
+        c.customer.toLowerCase().includes(q)
+      );
+
+      const tbody = document.getElementById('coa-table-body');
+      tbody.innerHTML = filtered.slice().reverse().map(c => {
+        const stdHex = labToRgbHex(c.stdLab.L, c.stdLab.a, c.stdLab.b);
+        const smpHex = labToRgbHex(c.smpLab.L, c.smpLab.a, c.smpLab.b);
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-4">
+              <div class="font-mono font-bold text-slate-900">${c.coaNumber}</div>
+              <div class="text-[11px] text-slate-400">${c.date} • ${c.batch}</div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="font-semibold text-slate-800">${c.colorName}</div>
+              <div class="text-[11px] text-slate-500">${c.customer}</div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="w-12 h-6 mx-auto rounded-md overflow-hidden border border-slate-300 flex shadow-2xs" title="Std vs Sample">
+                <div class="w-1/2 h-full" style="background:${stdHex}"></div>
+                <div class="w-1/2 h-full" style="background:${smpHex}"></div>
+              </div>
+            </td>
+            <td class="py-3 px-4 text-right font-mono font-bold ${c.dEab <= c.tolDE ? 'text-emerald-700' : 'text-rose-600'}">
+              ${formatNumber(c.dEab)}
+              <span class="block text-[10px] text-slate-400 font-normal">Max ${c.tolDE}</span>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ${c.status === 'PASSED' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                ${c.status}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-right">
+              <button onclick="openCOAPreview('${c.id}')" class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-blue-600 text-white rounded-lg text-[11px] font-semibold transition-colors">
+                <i data-lucide="printer" class="w-3.5 h-3.5"></i> Sertifikat
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('') || `<tr><td colspan="6" class="py-8 text-center text-slate-400">Belum ada dokumen COA ditemukan.</td></tr>`;
+      lucide.createIcons();
+    }
+
+    function openCOAPreview(coaId) {
+      const c = appData.coas.find(x => x.id === coaId);
+      if (!c) return;
+
+      const stdHex = labToRgbHex(c.stdLab.L, c.stdLab.a, c.stdLab.b);
+      const smpHex = labToRgbHex(c.smpLab.L, c.smpLab.a, c.smpLab.b);
+
+      const dirL = Math.abs(c.dL) < 0.05 ? 'On Target' : (c.dL > 0 ? 'Lighter (+L*)' : 'Darker (-L*)');
+      const dira = Math.abs(c.da) < 0.05 ? 'On Target' : (c.da > 0 ? 'Redder (+a*)' : 'Greener (-a*)');
+      const dirb = Math.abs(c.db) < 0.05 ? 'On Target' : (c.db > 0 ? 'Yellower (+b*)' : 'Bluer (-b*)');
+
+      const printArea = document.getElementById('coa-print-area');
+      printArea.innerHTML = `
+        <!-- Lab Letterhead -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b-2 border-slate-900 pb-4 gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-xl">IL</div>
+            <div>
+              <h1 class="text-lg font-extrabold tracking-tight text-slate-900 uppercase">PT INKLAB GRAFIKA INDONESIA</h1>
+              <p class="text-xs text-slate-600">Quality Control & Colorimetry Spectrophotometer Laboratory</p>
+              <p class="text-[11px] text-slate-500">Kawasan Industri Jababeka Cikarang, Bekasi • ISO 9001:2015 Certified</p>
+            </div>
+          </div>
+          <div class="sm:text-right">
+            <span class="inline-block px-3 py-1 bg-slate-900 text-white text-xs font-bold tracking-wider uppercase rounded">CERTIFICATE OF ANALYSIS</span>
+            <p class="font-mono font-bold text-sm text-slate-900 mt-1">${c.coaNumber}</p>
+            <p class="text-xs text-slate-500">Tanggal Uji: ${c.date}</p>
+          </div>
+        </div>
+
+        <!-- Sample Metadata -->
+        <div class="grid grid-cols-2 gap-x-8 gap-y-2 py-4 border-b border-slate-200 text-xs">
+          <div class="flex justify-between"><span class="text-slate-500">Customer:</span><span class="font-bold text-slate-900">${c.customer}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Nomor Batch:</span><span class="font-mono font-bold text-slate-900">${c.batch}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Kode / Nama Warna:</span><span class="font-bold text-slate-900">${c.colorName}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Proses Order (PrO):</span><span class="font-mono font-bold text-slate-900">${c.jo}</span></div>
+          <div class="flex justify-between col-span-2"><span class="text-slate-500">Substrat / Film Aplikasi:</span><span class="font-semibold text-slate-800">${c.substrate}</span></div>
+        </div>
+
+        <!-- Section A: CIELAB Spectrophotometer -->
+        <div class="mt-5">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-900">A. Pengukuran Warna Spektrofotometer (CIELAB D65 / 10°)</h3>
+            <span class="text-[11px] font-mono text-slate-500">Instrument: X-Rite eXact™ Spectrophotometer</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center mb-3">
+            <div class="sm:col-span-8 overflow-x-auto">
+              <table class="w-full text-xs border border-slate-300">
+                <thead>
+                  <tr class="bg-slate-100 border-b border-slate-300 font-bold text-slate-700">
+                    <th class="py-2 px-3 text-left">Parameter</th>
+                    <th class="py-2 px-3 text-right">Standard</th>
+                    <th class="py-2 px-3 text-right">Sample Batch</th>
+                    <th class="py-2 px-3 text-right">Delta (Δ)</th>
+                    <th class="py-2 px-3 text-left">Arah Pergeseran</th>
+                  </tr>
+                </thead>
+                <tbody class="font-mono divide-y divide-slate-200">
+                  <tr>
+                    <td class="py-2 px-3 font-sans font-semibold">L* (Lightness)</td>
+                    <td class="py-2 px-3 text-right">${formatNumber(c.stdLab.L)}</td>
+                    <td class="py-2 px-3 text-right">${formatNumber(c.smpLab.L)}</td>
+                    <td class="py-2 px-3 text-right font-bold">${c.dL >= 0 ? '+' : ''}${formatNumber(c.dL)}</td>
+                    <td class="py-2 px-3 font-sans text-slate-600">${dirL}</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-sans font-semibold">a* (Red / Green)</td>
+                    <td class="py-2 px-3 text-right">${formatNumber(c.stdLab.a)}</td>
+                    <td class="py-2 px-3 text-right">${formatNumber(c.smpLab.a)}</td>
+                    <td class="py-2 px-3 text-right font-bold">${c.da >= 0 ? '+' : ''}${formatNumber(c.da)}</td>
+                    <td class="py-2 px-3 font-sans text-slate-600">${dira}</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2 px-3 font-sans font-semibold">b* (Yellow / Blue)</td>
+                    <td class="py-2 px-3 text-right">${formatNumber(c.stdLab.b)}</td>
+                    <td class="py-2 px-3 text-right">${formatNumber(c.smpLab.b)}</td>
+                    <td class="py-2 px-3 text-right font-bold">${c.db >= 0 ? '+' : ''}${formatNumber(c.db)}</td>
+                    <td class="py-2 px-3 font-sans text-slate-600">${dirb}</td>
+                  </tr>
+                  <tr class="bg-slate-50 font-bold">
+                    <td class="py-2 px-3 font-sans">Total ΔE*ab (Tol ≤ ${c.tolDE})</td>
+                    <td class="py-2 px-3 text-right">—</td>
+                    <td class="py-2 px-3 text-right">—</td>
+                    <td class="py-2 px-3 text-right text-sm ${c.dEab <= c.tolDE ? 'text-emerald-700' : 'text-rose-700'}">${formatNumber(c.dEab)}</td>
+                    <td class="py-2 px-3 font-sans">${c.dEab <= c.tolDE ? 'IN TOLERANCE' : 'OUT OF SPEC'}</td>
+                  </tr>
+                  <tr class="bg-slate-50 font-bold">
+                    <td class="py-2 px-3 font-sans">CIEDE2000 (ΔE₀₀)</td>
+                    <td class="py-2 px-3 text-right">—</td>
+                    <td class="py-2 px-3 text-right">—</td>
+                    <td class="py-2 px-3 text-right text-sm text-blue-700">${formatNumber(c.dE2000)}</td>
+                    <td class="py-2 px-3 font-sans text-slate-600">Perceptual Delta</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="sm:col-span-4 flex flex-col items-center justify-center p-3 border border-slate-300 rounded-xl bg-slate-50">
+              <div class="w-full h-24 rounded-lg overflow-hidden border border-slate-400 flex shadow-inner">
+                <div class="w-1/2 h-full flex flex-col justify-end p-2" style="background:${stdHex}">
+                  <span class="bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded w-fit">STANDARD</span>
+                </div>
+                <div class="w-1/2 h-full flex flex-col justify-end items-end p-2" style="background:${smpHex}">
+                  <span class="bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded w-fit">SAMPLE</span>
+                </div>
+              </div>
+              <p class="text-[10px] text-slate-500 mt-2 text-center">Simulasi Visual sRGB (D65/10°)</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section B: Physical & Mechanical Properties -->
+        <div class="mt-5">
+          <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-900 mb-2">B. Pengujian Sifat Fisik & Ketahanan Cetak</h3>
+          <table class="w-full text-xs border border-slate-300">
+            <thead>
+              <tr class="bg-slate-100 border-b border-slate-300 font-bold text-slate-700">
+                <th class="py-2 px-3 text-left">Parameter Uji</th>
+                <th class="py-2 px-3 text-left">Metode / Standar</th>
+                <th class="py-2 px-3 text-left">Hasil Aktual</th>
+                <th class="py-2 px-3 text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200">
+              <tr>
+                <td class="py-2 px-3 font-semibold">Viskositas Aplikasi</td>
+                <td class="py-2 px-3 text-slate-600">Efflux Cup Zahn #2 @25°C</td>
+                <td class="py-2 px-3 font-mono">${c.viscosity}</td>
+                <td class="py-2 px-3 text-center font-bold text-emerald-700">OK</td>
+              </tr>
+              <tr>
+                <td class="py-2 px-3 font-semibold">Kehalusan Dispersi (Fineness)</td>
+                <td class="py-2 px-3 text-slate-600">Hegman Grindometer Gauge</td>
+                <td class="py-2 px-3 font-mono">${c.fineness}</td>
+                <td class="py-2 px-3 text-center font-bold text-emerald-700">OK</td>
+              </tr>
+              <tr>
+                <td class="py-2 px-3 font-semibold">Daya Rekat (Adhesion Test)</td>
+                <td class="py-2 px-3 text-slate-600">3M 610 Cellophane Tape Test</td>
+                <td class="py-2 px-3">${c.adhesion === 'PASS' ? '100% Ink Retention (No Peel)' : 'Peeling Detected'}</td>
+                <td class="py-2 px-3 text-center font-bold ${c.adhesion === 'PASS' ? 'text-emerald-700' : 'text-rose-700'}">${c.adhesion}</td>
+              </tr>
+              <tr>
+                <td class="py-2 px-3 font-semibold">Ketahanan Gesek (Rub Resistance)</td>
+                <td class="py-2 px-3 text-slate-600">Sutherland Rub Tester (50 Strokes)</td>
+                <td class="py-2 px-3">${c.rub === 'PASS' ? 'No Smudging / Transfer' : 'Ink Smudging'}</td>
+                <td class="py-2 px-3 text-center font-bold ${c.rub === 'PASS' ? 'text-emerald-700' : 'text-rose-700'}">${c.rub}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Final QC Verdict Stamp -->
+        <div class="mt-6 p-4 rounded-xl border-2 flex items-center justify-between ${c.status === 'PASSED' ? 'border-emerald-600 bg-emerald-50/60' : 'border-rose-600 bg-rose-50/60'}">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-600">Final Quality Assurance Disposition</p>
+            <p class="text-xs text-slate-700 mt-0.5">
+              ${c.status === 'PASSED'
+                ? 'Batch tinta ini memenuhi seluruh spesifikasi warna dan fisik untuk dirilis ke lini produksi cetak.'
+                : 'Batch tinta DITAHAN (HOLD / REJECTED) dan memerlukan koreksi toning / reformulasi di laboratorium.'}
+            </p>
+          </div>
+          <div class="px-4 py-2 border-2 rounded-lg font-extrabold text-base tracking-widest uppercase ${c.status === 'PASSED' ? 'border-emerald-700 text-emerald-800' : 'border-rose-700 text-rose-800'}">
+            ${c.status}
+          </div>
+        </div>
+
+        <!-- Signatures -->
+        <div class="mt-8 pt-4 grid grid-cols-2 gap-8 text-center text-xs">
+          <div>
+            <p class="text-slate-500 mb-14">Diperiksa Oleh (Lab Colorist / Analyst),</p>
+            <p class="font-bold text-slate-900 underline">${c.analyst}</p>
+            <p class="text-[11px] text-slate-500">Colorimetry & QC Specialist</p>
+          </div>
+          <div>
+            <p class="text-slate-500 mb-14">Disetujui Oleh (Quality Control Head),</p>
+            <p class="font-bold text-slate-900 underline">${c.manager}</p>
+            <p class="text-[11px] text-slate-500">QC & Technical Manager</p>
+          </div>
+        </div>
+      `;
+
+      openModal('modal-coa-preview');
+    }
+
+    // =========================================================================
+    // 9. BACKUP, RESTORE, RESET & APP INITIALIZATION
+    // =========================================================================
+    function exportBackupJSON() {
+      const dataStr = JSON.stringify(appData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `InkLab_Pro_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('File backup JSON berhasil diunduh.');
+    }
+
+    function importBackupJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          if (!parsed.bases || !parsed.formulas || !parsed.usages || !parsed.coas) {
+            throw new Error('Struktur file backup JSON tidak valid.');
+          }
+          appData = parsed;
+          if (!appData.movements) appData.movements = [];
+          saveData();
+          switchTab('dashboard');
+          showToast('Data berhasil di-restore dari file backup!');
+        } catch (err) {
+          showToast('Gagal restore data: ' + err.message, 'error');
+        }
+        event.target.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function openResetConfirmModal() {
+      openModal('modal-reset');
+    }
+
+    function confirmResetData() {
+      appData = JSON.parse(JSON.stringify(DEFAULT_DATA));
+      selectedFormulaId = appData.formulas[0]?.id || null;
+      saveData();
+      closeModal('modal-reset');
+      switchTab('dashboard');
+      showToast('Seluruh data berhasil di-reset ke simulasi awal.', 'warning');
+    }
+
+    // Initialize Application on Load
+    document.addEventListener('DOMContentLoaded', () => {
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('current-date-display').textContent = new Date().toLocaleDateString('id-ID', options);
+      updateStorageIndicator(JSON.stringify(appData).length);
+      switchTab('dashboard');
+    });
+  </script>
+</body>
+</html>
